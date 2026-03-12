@@ -66,6 +66,10 @@ Cilj projekta je demonstrirati primjenu principa **programskog inženjerstva**, 
 - Kanban board
 - statistika bugova po projektu
 
+## UseCase dijagram
+
+![UseCase dijagram](UseCase.png)
+
 ## Link na javni prototip
 
 (Javni prototip)[#]
