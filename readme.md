@@ -1,10 +1,10 @@
 # BugTracker
 
-BugTracker je web aplikacija namijenjena upravljanju greškama (bugovima) i zadacima unutar softverskih projekata. Aplikacija omogućuje razvojnom timu jednostavno prijavljivanje, praćenje i rješavanje problema tijekom razvoja softvera.
+BugTracker je web aplikacija namijenjena upravljanju greškama/problemima (bugovima) i/ili zadacima unutar softverskih projekata. Aplikacija omogućuje razvojnom timu jednostavno prijavljivanje, praćenje i rješavanje problema tijekom razvoja softvera.
 
 Cilj aplikacije je poboljšati organizaciju rada unutar tima, povećati transparentnost razvoja te olakšati komunikaciju između članova tima.
 
-Aplikacija je razvijena kao projekt za kolegij **Programsko inženjerstvo** te sam ju radio samostalno.
+Aplikacija je razvijena kao projekt za kolegij **Programsko inženjerstvo** te je samostalno izrađena.
 
 [Fakultet informatike u Puli](https://fipu.unipu.hr)
 
@@ -16,20 +16,20 @@ Mentor: [doc. dr. sc. Nikola Tanković](https://ntankovic.unipu.hr)
 
 - registracija i prijava korisnika
 - kreiranje projekata
-- prijavljivanje bugova (issue)
-- dodjeljivanje bugova članovima tima
-- promjena statusa bugova (Open, In Progress, Resolved, Closed)
-- komentiranje bugova
-- pregled svih bugova po projektu
-- filtriranje bugova po statusu, prioritetu i dodijeljenom korisniku
+- prijavljivanje problema (issue)
+- dodjeljivanje problema članovima tima
+- promjena statusa problema (Open, In Progress, Resolved, Closed)
+- komentiranje problema
+- pregled svih problema po projektu
+- filtriranje problema po statusu, prioritetu i dodijeljenom korisniku
 
 ## Uloge korisnika
 
 Sustav podržava više korisničkih uloga:
 
 - **Administrator** – upravlja projektima i korisnicima
-- **Developer** – rješava prijavljene bugove
-- **Tester / Reporter** – prijavljuje nove bugove
+- **Developer** – rješava prijavljene probleme
+- **Tester / Reporter** – prijavljuje nove probleme
 
 ## Tehnologije
 
@@ -37,9 +37,8 @@ Projekt koristi sljedeće tehnologije:
 
 - **Vue.js** – frontend framework
 - **Vue Router** – navigacija između stranica
-- **Pinia / Vue state management** – upravljanje stanjem aplikacije
-- **REST API / Firebase / Supabase** – backend i baza podataka
-- **CSS / Tailwind / Bootstrap** – stiliziranje korisničkog sučelja
+- **Firebase** – backend i baza podataka
+- **CSS / Tailwind** – stiliziranje korisničkog sučelja
 
 ## Struktura aplikacije
 
@@ -47,7 +46,7 @@ Aplikacija se sastoji od nekoliko glavnih modula:
 
 - upravljanje korisnicima
 - upravljanje projektima
-- upravljanje bugovima
+- upravljanje problemima
 - sustav komentara
 - dashboard za pregled stanja projekta
 
