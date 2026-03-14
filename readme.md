@@ -66,9 +66,61 @@ Cilj projekta je demonstrirati primjenu principa **programskog inženjerstva**, 
 - Kanban board
 - statistika bugova po projektu
 
-## UseCase dijagram
+## Use Case dijagram
+
+
+### Akteri
+
+#### Tester
+
+Tester prijavljuje nove probleme u sustavu, pregledava postojeće probleme, pretražuje ih te može komentirati prijavljene probleme.
+
+#### Developer
+
+Developer pregledava probleme koji su mu dodijeljeni te ih obrađuje mijenjajući njihov status tijekom procesa rješavanja.
+
+#### Administrator
+
+Administrator upravlja projektima i korisnicima unutar sustava te može dodjeljivati probleme developerima.
+
+### Opis dijagrama
+
+Use Case dijagram prikazuje interakciju između aktera (Tester, Developer i Administrator) i funkcionalnosti sustava BugTracker. 
+
+Dijagram prikazuje glavne funkcije sustava kao što su prijava problema, pregled problema, komentiranje problema, obrada problema te upravljanje projektima i korisnicima.
 
 ![UseCase dijagram](UseCase.png)
+
+## Use Case Sequence dijagram
+
+Use Case Sequence: Prijava problema
+
+Akter: Tester
+
+Opis:
+Tester prijavljuje novi problem u sustavu kako bi developer mogao analizirati i popraviti grešku.
+
+Preduvijet: 
+Tester je prijavljen u sustav.
+
+Glavni tok:
+1. Tester otvara formu za prijavu problema.
+2. Sustav prikazuje obrazac za unos problema.
+3. Tester unosi podatke o problemu.
+4. Tester potvrđuje unos problema.
+5. Sustav provjerava ispravnost podataka.
+6. Sustav sprema problem u Firebase Firestore.
+7. Sustav prikazuje potvrdu o uspješnom spremanju problema.
+
+Alternativni tok:
+1. Sustav prikazuje poruku o grešci.
+2. Tester ispravlja podatke
+
+Postuvjet:
+- Novi problem je evidentiran u sustavu.
+- Problem je dostupan developerima za obradu.
+
+![UseCase sequence dijagram](Use-Case-Sequence.png)
 
 ## Link na javni prototip
 
