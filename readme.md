@@ -109,8 +109,7 @@ Glavni tok:
 3. Tester unosi podatke o problemu.
 4. Tester potvrđuje unos problema.
 5. Sustav provjerava ispravnost podataka.
-6. Sustav sprema problem u Firebase Firestore.
-7. Sustav prikazuje potvrdu o uspješnom spremanju problema.
+6. Sustav prikazuje potvrdu o uspješnom spremanju problema.
 
 Alternativni tok:
 1. Sustav prikazuje poruku o grešci.
