@@ -121,6 +121,10 @@ Postuvjet:
 
 ![UseCase sequence dijagram](Use-Case-Sequence.png)
 
+## Class model
+
+![Class model](Class-Model.png)
+
 ## Link na javni prototip
 
-(Javni prototip)[#]
+[Javni prototip na Figmi](https://www.figma.com/proto/2cuI4zi1EPM0Qb3RuzRjSS/BugTracker?node-id=0-1&t=uJ5pskhX8eYchWpY-1)
