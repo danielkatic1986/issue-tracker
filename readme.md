@@ -89,7 +89,7 @@ Use Case dijagram prikazuje interakciju između aktera (Tester, Developer i Admi
 
 Dijagram prikazuje glavne funkcije sustava kao što su prijava problema, pregled problema, komentiranje problema, obrada problema te upravljanje projektima i korisnicima.
 
-![UseCase dijagram](UseCase.png)
+![UseCase dijagram](docs/UseCase.png)
 
 ## Use Case Sequence dijagram
 
@@ -119,11 +119,11 @@ Postuvjet:
 - Novi problem je evidentiran u sustavu.
 - Problem je dostupan developerima za obradu.
 
-![UseCase sequence dijagram](Use-Case-Sequence.png)
+![UseCase sequence dijagram](docs/Use-Case-Sequence.png)
 
 ## Class model
 
-![Class model](Class-Model.png)
+![Class model](docs/Class-Model.png)
 
 ## Link na javni prototip
 
