@@ -1,0 +1,38 @@
+<template>
+    <div class="w-full max-w-sm">
+        <div class="flex justify-center mb-8">
+            <img src="@/assets/logo.png" alt="BugTracker" class="h-40" />
+        </div>
+
+        <form class="flex flex-col gap-4">
+            <div class="flex flex-col gap-1">
+                <label class="text-sm text-gray-600">Email</label>
+                <input 
+                    type="email"
+                    name="email"
+                    placeholder="harry@potter.hr"
+                    class="border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+                />
+            </div>
+            <div class="flex flex-col gap-1">
+                <label class="text-sm text-gray-600">Lozinka</label>
+                <input 
+                    type="password" 
+                    name="password" 
+                    placeholder="••••••••••••••••"
+                    class="border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"    
+                />
+            </div>
+            <button 
+                type="submit"
+                class="bg-purple-600 hover:bg-purple-700 text-white py-2 rounded font-medium transition-colors"
+            >
+                Log In
+            </button>
+
+            <a href="#" class="text-sm text-center text-gray-500 underline">
+                Zaboravili ste lozinku?
+            </a>
+        </form>
+    </div>
+</template>
