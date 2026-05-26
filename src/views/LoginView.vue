@@ -77,9 +77,12 @@ async function handleSubmit() {
                 {{ ucitavanje ? 'Prijava...' : 'Log In' }}
             </button>
 
-            <a href="#" class="text-sm text-center text-gray-500 underline">
-                Zaboravili ste lozinku?
-            </a>
+            <RouterLink
+              to="/zaboravljena-lozinka"
+              class="text-sm text-center text-gray-500 underline hover:text-gray-700"
+            >
+              Zaboravili ste lozinku?
+            </RouterLink>
         </form>
     </div>
 </template>
