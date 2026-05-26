@@ -1,20 +1,39 @@
 <script setup>
-import { useAuthStore } from '@/stores/authStore';
-import { useRouter } from 'vue-router';
+import { useAuthStore } from '@/stores/authStore'
+import { useRouter } from 'vue-router'
 import { ref } from 'vue'
 
 const email = ref('')
 const password = ref('')
-
+const greska = ref('')
+const ucitavanje = ref(false)
 
 const authStore = useAuthStore()
 const router = useRouter()
 
-async function handleSubmit() {
-  await authStore.login(email.value, password.value)
-  router.push('/')
+// Mapiranje Firebase error kodova na čitljive poruke
+const poruckeGresaka = {
+  'auth/invalid-credential': 'Pogrešan email ili lozinka.',
+  'auth/user-not-found': 'Korisnik s tim emailom ne postoji.',
+  'auth/wrong-password': 'Pogrešna lozinka.',
+  'auth/too-many-requests': 'Previše neuspjelih pokušaja. Pokušajte kasnije.',
+  'auth/user-disabled': 'Ovaj korisnički račun je deaktiviran.',
+  'auth/network-request-failed': 'Greška mreže. Provjerite internet vezu.'
 }
 
+async function handleSubmit() {
+  greska.value = ''
+  ucitavanje.value = true
+
+  try {
+    await authStore.login(email.value, password.value)
+    router.push('/')
+  } catch (e) {
+    greska.value = poruckeGresaka[e.code] ?? 'Došlo je do greške. Pokušajte ponovo.'
+  } finally {
+    ucitavanje.value = false
+  }
+}
 </script>
 
 <template>
@@ -26,7 +45,7 @@ async function handleSubmit() {
         <form @submit.prevent="handleSubmit" class="flex flex-col gap-4">
             <div class="flex flex-col gap-1">
                 <label class="text-sm text-gray-600">Email</label>
-                <input 
+                <input
                     type="email"
                     v-model="email"
                     name="email"
@@ -36,19 +55,26 @@ async function handleSubmit() {
             </div>
             <div class="flex flex-col gap-1">
                 <label class="text-sm text-gray-600">Lozinka</label>
-                <input 
-                    type="password" 
+                <input
+                    type="password"
                     v-model="password"
-                    name="password" 
+                    name="password"
                     placeholder="••••••••••••••••"
-                    class="border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"    
+                    class="border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
                 />
             </div>
-            <button 
+
+            <!-- Poruka greške -->
+            <p v-if="greska" class="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">
+                {{ greska }}
+            </p>
+
+            <button
                 type="submit"
-                class="bg-purple-600 hover:bg-purple-700 text-white py-2 rounded font-medium transition-colors"
+                :disabled="ucitavanje"
+                class="bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white py-2 rounded font-medium transition-colors"
             >
-                Log In
+                {{ ucitavanje ? 'Prijava...' : 'Log In' }}
             </button>
 
             <a href="#" class="text-sm text-center text-gray-500 underline">
