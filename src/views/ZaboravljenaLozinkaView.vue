@@ -39,7 +39,7 @@ async function handleSubmit() {
       <img src="@/assets/logo.png" alt="BugTracker" class="h-40" />
     </div>
 
-    <!-- Uspješno poslano -->
+    <!-- prikaz nakon uspješnog slanja -->
     <div v-if="uspjeh" class="flex flex-col gap-4 text-center">
       <div class="bg-green-50 border border-green-200 rounded p-4">
         <p class="text-green-700 font-medium mb-1">✅ Link je poslan!</p>
@@ -55,7 +55,6 @@ async function handleSubmit() {
       </button>
     </div>
 
-    <!-- Forma za email -->
     <form v-else @submit.prevent="handleSubmit" class="flex flex-col gap-4">
       <div>
         <h1 class="text-xl font-bold text-gray-800">Zaboravili ste lozinku?</h1>

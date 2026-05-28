@@ -18,10 +18,7 @@ export const ULOGE = {
   TESTER: 'tester'
 }
 
-/**
- * Kreira profil korisnika u Firestore-u nakon registracije.
- * Lozinka se NE sprema ovdje — to radi Firebase Auth.
- */
+// lozinka se ne sprema ovdje, to je posao Firebase Autha
 export async function kreirajKorisnika(uid, { ime, prezime, email, uloga = ULOGE.DEVELOPER }) {
   const ref = doc(db, 'korisnici', uid)
   await setDoc(ref, {
@@ -34,10 +31,6 @@ export async function kreirajKorisnika(uid, { ime, prezime, email, uloga = ULOGE
   })
 }
 
-/**
- * Dohvaća profil jednog korisnika po UID-u.
- * Vraća { id, ...data } ili null ako ne postoji.
- */
 export async function dohvatiKorisnika(uid) {
   const ref = doc(db, 'korisnici', uid)
   const snap = await getDoc(ref)
@@ -45,34 +38,22 @@ export async function dohvatiKorisnika(uid) {
   return { id: snap.id, ...snap.data() }
 }
 
-/**
- * Dohvaća sve korisnike iz Firestore-a.
- */
 export async function dohvatiSveKorisnike() {
   const snap = await getDocs(collection(db, 'korisnici'))
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
 }
 
-/**
- * Dohvaća sve korisnike određene uloge.
- */
 export async function dohvatiKorisniciPoUlozi(uloga) {
   const q = query(collection(db, 'korisnici'), where('uloga', '==', uloga))
   const snap = await getDocs(q)
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
 }
 
-/**
- * Ažurira podatke korisnika (ime, prezime, uloga, aktivan).
- */
 export async function azurirajKorisnika(uid, podaci) {
   const ref = doc(db, 'korisnici', uid)
   await updateDoc(ref, podaci)
 }
 
-/**
- * Deaktivira korisnika (soft delete).
- */
 export async function deaktivirajKorisnika(uid) {
   await azurirajKorisnika(uid, { aktivan: false })
 }

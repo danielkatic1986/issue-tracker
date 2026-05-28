@@ -48,13 +48,6 @@ export const useIssuesStore = defineStore('issues', {
   },
 
   actions: {
-    // ─────────────────────────────────────
-    // PROBLEMI
-    // ─────────────────────────────────────
-
-    /**
-     * Učitava sve probleme projekta iz Firestore-a.
-     */
     async ucitajProbleme(projektId) {
       this.ucitavanje = true
       this.greska = null
@@ -67,18 +60,12 @@ export const useIssuesStore = defineStore('issues', {
       }
     },
 
-    /**
-     * Postavlja aktivni (odabrani) problem i učitava njegove komentare.
-     */
     async postaviAktivniProblem(projektId, problemId) {
       const lokalni = this.problemPoId(problemId)
       this.aktivniProblem = lokalni ?? await dohvatiProblem(projektId, problemId)
       await this.ucitajKomentare(projektId, problemId)
     },
 
-    /**
-     * Prijavljuje (kreira) novi problem na projektu.
-     */
     async prijaviProblem(projektId, podaci) {
       this.greska = null
       try {
@@ -91,9 +78,6 @@ export const useIssuesStore = defineStore('issues', {
       }
     },
 
-    /**
-     * Ažurira problem (status, prioritet, opis...).
-     */
     async urediProblem(projektId, problemId, podaci) {
       this.greska = null
       try {
@@ -109,9 +93,6 @@ export const useIssuesStore = defineStore('issues', {
       }
     },
 
-    /**
-     * Administrator dodjeljuje developera na problem.
-     */
     async dodijeliDevelopera(projektId, problemId, developerUid, administratorUid) {
       await dodijeliDevelopera(projektId, problemId, developerUid, administratorUid)
       await this.urediProblem(projektId, problemId, {
@@ -121,9 +102,6 @@ export const useIssuesStore = defineStore('issues', {
       })
     },
 
-    /**
-     * Briše problem.
-     */
     async izbrisiProblem(projektId, problemId) {
       this.greska = null
       try {
@@ -136,13 +114,6 @@ export const useIssuesStore = defineStore('issues', {
       }
     },
 
-    // ─────────────────────────────────────
-    // KOMENTARI
-    // ─────────────────────────────────────
-
-    /**
-     * Učitava komentare aktivnog problema.
-     */
     async ucitajKomentare(projektId, problemId) {
       this.greska = null
       try {
@@ -152,9 +123,6 @@ export const useIssuesStore = defineStore('issues', {
       }
     },
 
-    /**
-     * Dodaje komentar na problem.
-     */
     async dodajKomentar(projektId, problemId, podaci) {
       this.greska = null
       try {
@@ -167,31 +135,17 @@ export const useIssuesStore = defineStore('issues', {
       }
     },
 
-    /**
-     * Ažurira tekst komentara.
-     */
     async urediKomentar(projektId, problemId, komentarId, tekst) {
       await azurirajKomentar(projektId, problemId, komentarId, { tekst })
       const idx = this.komentari.findIndex((k) => k.id === komentarId)
       if (idx !== -1) this.komentari[idx] = { ...this.komentari[idx], tekst }
     },
 
-    /**
-     * Briše komentar.
-     */
     async izbrisiKomentar(projektId, problemId, komentarId) {
       await obrisiKomentar(projektId, problemId, komentarId)
       this.komentari = this.komentari.filter((k) => k.id !== komentarId)
     },
 
-    // ─────────────────────────────────────
-    // PRIVITCI
-    // ─────────────────────────────────────
-
-    /**
-     * Uploadira datoteku i dodaje je kao privitak komentara.
-     * @param {File} datoteka
-     */
     async dodajPrivitak(projektId, problemId, komentarId, datoteka) {
       const privitak = await dodajPrivitak(projektId, problemId, komentarId, datoteka)
       // Ažuriraj lokalni komentar da pokazuje privitak: true
@@ -200,16 +154,10 @@ export const useIssuesStore = defineStore('issues', {
       return privitak
     },
 
-    /**
-     * Dohvaća privitke komentara.
-     */
     dohvatiPrivitke(projektId, problemId, komentarId) {
       return dohvatiPrivitke(projektId, problemId, komentarId)
     },
 
-    /**
-     * Briše privitak.
-     */
     async izbrisiPrivitak(projektId, problemId, komentarId, privitkId, putanja) {
       await obrisiPrivitak(projektId, problemId, komentarId, privitkId, putanja)
     }

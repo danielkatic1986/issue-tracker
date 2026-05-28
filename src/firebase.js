@@ -3,7 +3,7 @@ import { getAuth } from 'firebase/auth'
 import { getFirestore } from 'firebase/firestore'
 import { getStorage } from 'firebase/storage'
 
-const firebaseConfig = {
+export const firebaseConfig = {
   apiKey: "AIzaSyCa1uq8eXzxqIQNJqWq3V6XZewgYxbflVQ",
   authDomain: "issue-tracker-2c456.firebaseapp.com",
   projectId: "issue-tracker-2c456",

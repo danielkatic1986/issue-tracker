@@ -1,9 +1,13 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import AuthLayout from '@/layouts/AuthLayout.vue'
+import DashboardLayout from '@/layouts/DashboardLayout.vue'
 import LoginView from '@/views/LoginView.vue'
 import ZaboravljenaLozinkaView from '@/views/ZaboravljenaLozinkaView.vue'
 import NotFoundView from '@/views/NotFoundView.vue'
 import DashboardView from '@/views/DashboardView.vue'
+import ProjektiView from '@/views/ProjektiView.vue'
+import KorisnikView from '@/views/KorisnikView.vue'
+import AdminKorisniciView from '@/views/AdminKorisniciView.vue'
 import { useAuthStore } from '@/stores/authStore'
 
 const router = createRouter({
@@ -20,7 +24,13 @@ const router = createRouter({
     {
       path: '/',
       meta: { requiresAuth: true },
-      component: DashboardView
+      component: DashboardLayout,
+      children: [
+        { path: '', component: DashboardView },
+        { path: 'projekti', component: ProjektiView },
+        { path: 'korisnik', component: KorisnikView },
+        { path: 'admin/korisnici', component: AdminKorisniciView, meta: { requiresAdmin: true } }
+      ]
     },
     {
       path: '/:pathMatch(.*)*',
@@ -33,8 +43,12 @@ const router = createRouter({
 router.beforeEach((to) => {
   const authStore = useAuthStore()
 
-  if(to.meta.requiresAuth && !authStore.user) {
-    return {path: '/login'}
+  if (to.meta.requiresAuth && !authStore.user) {
+    return { path: '/login' }
+  }
+
+  if (to.meta.requiresAdmin && !authStore.jeAdministrator) {
+    return { path: '/' }
   }
 })
 

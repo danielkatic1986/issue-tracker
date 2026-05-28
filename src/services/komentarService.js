@@ -16,19 +16,6 @@ import {
   deleteObject
 } from 'firebase/storage'
 
-// ─────────────────────────────────────────────
-// KOMENTARI
-// ─────────────────────────────────────────────
-
-/**
- * Dodaje komentar na problem.
- * @param {string} projektId
- * @param {string} problemId
- * @param {object} podaci
- * @param {string} podaci.tekst
- * @param {string} podaci.korisnikUid - UID korisnika koji piše komentar
- * @param {boolean} [podaci.privitak=false] - ima li komentar privitke
- */
 export async function dodajKomentar(projektId, problemId, { tekst, korisnikUid, privitak = false }) {
   const ref = await addDoc(
     collection(db, 'projekti', projektId, 'problemi', problemId, 'komentari'),
@@ -42,9 +29,6 @@ export async function dodajKomentar(projektId, problemId, { tekst, korisnikUid, 
   return ref.id
 }
 
-/**
- * Dohvaća sve komentare jednog problema.
- */
 export async function dohvatiKomentare(projektId, problemId) {
   const snap = await getDocs(
     collection(db, 'projekti', projektId, 'problemi', problemId, 'komentari')
@@ -52,9 +36,6 @@ export async function dohvatiKomentare(projektId, problemId) {
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
 }
 
-/**
- * Dohvaća jedan komentar.
- */
 export async function dohvatiKomentar(projektId, problemId, komentarId) {
   const ref = doc(db, 'projekti', projektId, 'problemi', problemId, 'komentari', komentarId)
   const snap = await getDoc(ref)
@@ -62,34 +43,16 @@ export async function dohvatiKomentar(projektId, problemId, komentarId) {
   return { id: snap.id, ...snap.data() }
 }
 
-/**
- * Ažurira tekst komentara.
- */
 export async function azurirajKomentar(projektId, problemId, komentarId, { tekst }) {
   const ref = doc(db, 'projekti', projektId, 'problemi', problemId, 'komentari', komentarId)
   await updateDoc(ref, { tekst })
 }
 
-/**
- * Briše komentar.
- */
 export async function obrisiKomentar(projektId, problemId, komentarId) {
   const ref = doc(db, 'projekti', projektId, 'problemi', problemId, 'komentari', komentarId)
   await deleteDoc(ref)
 }
 
-// ─────────────────────────────────────────────
-// PRIVITCI (Attachments)
-// ─────────────────────────────────────────────
-
-/**
- * Uploadira datoteku u Firebase Storage i sprema meta-podatke u Firestore.
- * @param {string} projektId
- * @param {string} problemId
- * @param {string} komentarId
- * @param {File} datoteka - File objekt iz input[type=file]
- * @returns {object} - { id, naziv, putanja, tip, datumUploada, url }
- */
 export async function dodajPrivitak(projektId, problemId, komentarId, datoteka) {
   // 1. Upload datoteke u Storage
   const putanja = `privitci/${projektId}/${problemId}/${komentarId}/${Date.now()}_${datoteka.name}`
@@ -124,9 +87,6 @@ export async function dodajPrivitak(projektId, problemId, komentarId, datoteka) 
   return { id: fsRef.id, naziv: datoteka.name, putanja, url, tip: datoteka.type }
 }
 
-/**
- * Dohvaća sve privitke jednog komentara.
- */
 export async function dohvatiPrivitke(projektId, problemId, komentarId) {
   const snap = await getDocs(
     collection(
@@ -140,9 +100,6 @@ export async function dohvatiPrivitke(projektId, problemId, komentarId) {
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
 }
 
-/**
- * Briše privitak iz Storage-a i Firestore-a.
- */
 export async function obrisiPrivitak(projektId, problemId, komentarId, privitkId, putanja) {
   // Briši iz Storage-a
   const fileRef = storageRef(storage, putanja)

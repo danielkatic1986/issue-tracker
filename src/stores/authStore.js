@@ -26,18 +26,12 @@ export const useAuthStore = defineStore('auth', {
   },
 
   actions: {
-    /**
-     * Prijava postojećeg korisnika.
-     */
     async login(email, password) {
       const result = await signInWithEmailAndPassword(auth, email, password)
       this.user = result.user
       this.profil = await dohvatiKorisnika(result.user.uid)
     },
 
-    /**
-     * Registracija novog korisnika + kreiranje Firestore profila.
-     */
     async registracija(email, password, { ime, prezime, uloga = ULOGE.DEVELOPER }) {
       const result = await createUserWithEmailAndPassword(auth, email, password)
       this.user = result.user
@@ -45,19 +39,13 @@ export const useAuthStore = defineStore('auth', {
       this.profil = await dohvatiKorisnika(result.user.uid)
     },
 
-    /**
-     * Odjava korisnika.
-     */
     async logout() {
       await signOut(auth)
       this.user = null
       this.profil = null
     },
 
-    /**
-     * Inicijalizacija — sluša promjene auth stanja (poziva se u main.js).
-     * Vraća Promise koji se razrješava čim Firebase potvrdi stanje.
-     */
+    // čeka dok Firebase ne potvrdi auth stanje, onda razrješava Promise
     init() {
       return new Promise((resolve) => {
         onAuthStateChanged(auth, async (user) => {

@@ -27,9 +27,6 @@ export const useProjektiStore = defineStore('projekti', {
   },
 
   actions: {
-    /**
-     * Dohvaća sve projekte iz Firestore-a i sprema ih u store.
-     */
     async ucitajProjekte() {
       this.ucitavanje = true
       this.greska = null
@@ -42,9 +39,6 @@ export const useProjektiStore = defineStore('projekti', {
       }
     },
 
-    /**
-     * Postavlja aktivni projekt (za prikaz detalja).
-     */
     async postaviAktivniProjekt(projektId) {
       // Pokušaj pronaći u lokalnom stanju
       const lokalniProjekt = this.projektPoId(projektId)
@@ -56,9 +50,6 @@ export const useProjektiStore = defineStore('projekti', {
       this.aktivniProjekt = await dohvatiProjekt(projektId)
     },
 
-    /**
-     * Kreira novi projekt i dodaje ga u lokalno stanje.
-     */
     async dodajProjekt(podaci) {
       this.greska = null
       try {
@@ -71,9 +62,6 @@ export const useProjektiStore = defineStore('projekti', {
       }
     },
 
-    /**
-     * Ažurira projekt u Firestore-u i lokalnom stanju.
-     */
     async urediProjekt(projektId, podaci) {
       this.greska = null
       try {
@@ -92,9 +80,6 @@ export const useProjektiStore = defineStore('projekti', {
       }
     },
 
-    /**
-     * Briše projekt iz Firestore-a i lokalnog stanja.
-     */
     async izbrisiProjekt(projektId) {
       this.greska = null
       try {
