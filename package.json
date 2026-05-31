@@ -20,6 +20,7 @@
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^6.0.5",
+    "multer": "^2.1.1",
     "prettier": "3.8.1",
     "vite": "^8.0.3",
     "vite-plugin-vue-devtools": "^8.1.1"

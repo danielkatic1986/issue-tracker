@@ -1,17 +1,32 @@
 <template>
   <div class="flex h-screen bg-slate-50 overflow-hidden">
-    <aside class="w-56 bg-white flex flex-col shrink-0 border-r border-gray-100">
+
+    <!-- Overlay za mobitel (klik zatvara sidebar) -->
+    <div
+      v-if="sidebarOtvoren"
+      class="fixed inset-0 bg-black/40 z-20 md:hidden"
+      @click="sidebarOtvoren = false"
+    />
+
+    <!-- Sidebar — na mobitelu slide-in, na desktopu statičan -->
+    <aside
+      :class="[
+        'w-56 bg-white flex flex-col shrink-0 border-r border-gray-200 shadow-sm transition-transform duration-200',
+        'fixed top-0 left-0 h-full z-30 md:relative md:translate-x-0',
+        sidebarOtvoren ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+      ]"
+    >
       <div class="px-5 pt-6 pb-2">
         <p class="text-xs font-medium text-gray-400 tracking-wide">Meni</p>
       </div>
 
       <nav class="px-3 mt-1 space-y-0.5">
-        <RouterLink to="/" v-slot="{ isActive, navigate }" custom>
+        <RouterLink to="/" v-slot="{ isExactActive, navigate }" custom>
           <div
             @click="navigate"
             :class="[
               'flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer select-none text-sm font-medium transition-colors',
-              isActive ? 'bg-blue-50 text-gray-800' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'
+              isExactActive ? 'bg-blue-50 text-gray-800' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'
             ]"
           >
             <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
@@ -39,7 +54,6 @@
           </div>
         </RouterLink>
 
-        <!-- samo za administratore -->
         <RouterLink v-if="authStore.jeAdministrator" to="/admin/korisnici" v-slot="{ isActive, navigate }" custom>
           <div
             @click="navigate"
@@ -56,42 +70,58 @@
         </RouterLink>
       </nav>
 
+      <!-- Sub-navigacija za aktivni projekt -->
+      <div v-if="projektjeAktivan" class="mt-3 px-3 border-t border-gray-100 pt-3">
+        <p class="text-xs text-gray-400 px-3 mb-1 truncate">Projekt: {{ projektiStore.aktivniProjekt?.naziv ?? '...' }}</p>
+        <RouterLink :to="`/projekti/${route.params.projektId}`" v-slot="{ isActive, navigate }" custom>
+          <div
+            @click="navigate"
+            :class="[
+              'flex items-center justify-between gap-3 px-3 py-2 rounded-xl cursor-pointer select-none text-sm font-medium transition-colors',
+              isActive ? 'bg-blue-50 text-gray-800' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'
+            ]"
+          >
+            <div class="flex items-center gap-3">
+              <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/>
+              </svg>
+              Problemi
+            </div>
+            <button
+              v-if="authStore.jeAdministrator || authStore.jeTester || authStore.jeDeveloper"
+              @click.stop="dodajProblemIzSidebara"
+              class="w-5 h-5 rounded-full border border-current flex items-center justify-center opacity-60 hover:opacity-100 transition-opacity"
+            >
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+              </svg>
+            </button>
+          </div>
+        </RouterLink>
+      </div>
+
       <div class="flex-1" />
 
       <div class="px-4 border-t border-gray-100 pt-4 pb-3">
         <div class="flex items-center gap-2.5 mb-4">
           <div class="w-8 h-8 rounded-full shrink-0 overflow-hidden">
-            <img
-              v-if="authStore.profil?.avatarUrl"
-              :src="authStore.profil.avatarUrl"
-              class="w-full h-full object-cover"
-            />
-            <div
-              v-else
-              class="w-full h-full bg-indigo-100 flex items-center justify-center"
-            >
+            <img v-if="authStore.profil?.avatarUrl" :src="authStore.profil.avatarUrl" class="w-full h-full object-cover" />
+            <div v-else class="w-full h-full bg-indigo-100 flex items-center justify-center">
               <span class="text-xs font-bold text-indigo-600 select-none">{{ inicijali }}</span>
             </div>
           </div>
           <span class="text-sm font-medium text-gray-800 truncate">{{ punoIme }}</span>
         </div>
-
         <div class="space-y-1.5">
           <button class="w-full text-left text-xs text-gray-500 hover:text-gray-700 flex items-center gap-2 py-0.5">
             <span class="text-gray-300 text-base leading-none">◦</span>
             Postavke aplikacije
           </button>
-          <button
-            @click="router.push('/korisnik')"
-            class="w-full text-left text-xs text-gray-500 hover:text-gray-700 flex items-center gap-2 py-0.5"
-          >
+          <button @click="router.push('/korisnik')" class="w-full text-left text-xs text-gray-500 hover:text-gray-700 flex items-center gap-2 py-0.5">
             <span class="text-gray-300 text-base leading-none">◦</span>
             Korisnički podaci
           </button>
-          <button
-            @click="logout"
-            class="w-full text-left text-xs text-gray-500 hover:text-gray-700 flex items-center gap-2 py-0.5"
-          >
+          <button @click="logout" class="w-full text-left text-xs text-gray-500 hover:text-gray-700 flex items-center gap-2 py-0.5">
             <span class="text-gray-300 text-base leading-none">◦</span>
             Odjava
           </button>
@@ -108,19 +138,59 @@
       </div>
     </aside>
 
-    <main class="flex-1 overflow-auto">
-      <RouterView />
+    <!-- Glavni sadržaj -->
+    <main class="flex-1 overflow-hidden flex flex-col min-w-0">
+
+      <!-- Mobilna traka s hamburgerom -->
+      <div class="md:hidden flex items-center gap-3 px-4 h-12 bg-white border-b border-gray-200 shadow-sm shrink-0 z-10">
+        <button
+          @click="sidebarOtvoren = !sidebarOtvoren"
+          class="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+        >
+          <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"/>
+          </svg>
+        </button>
+        <div class="flex items-center gap-2">
+          <div class="w-6 h-6 rounded-md bg-amber-400 flex items-center justify-center">
+            <svg class="w-3.5 h-3.5 text-white" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M20 8h-2.81c-.45-.78-1.07-1.45-1.82-1.96L17 4.41 15.59 3l-2.17 2.17C13.04 5.06 12.53 5 12 5c-.53 0-1.04.06-1.52.17L8.41 3 7 4.41l1.62 1.63C7.88 6.55 7.26 7.22 6.81 8H4v2h2.09c-.05.33-.09.66-.09 1v1H4v2h2v1c0 .34.04.67.09 1H4v2h2.81c1.04 1.79 2.97 3 5.19 3s4.15-1.21 5.19-3H20v-2h-2.09c.05-.33.09-.66.09-1v-1h2v-2h-2v-1c0-.34-.04-.67-.09-1H20V8z"/>
+            </svg>
+          </div>
+          <span class="text-sm font-semibold text-gray-800">BugTracker</span>
+        </div>
+      </div>
+
+      <!-- Na mobitelu roditelj scrolla, na desktopu view sam upravlja scrollom -->
+      <div class="flex-1 overflow-y-auto md:overflow-hidden">
+        <RouterView />
+      </div>
     </main>
+
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/authStore'
+import { useProjektiStore } from '@/stores/projektiStore'
 
-const authStore = useAuthStore()
-const router = useRouter()
+const authStore     = useAuthStore()
+const projektiStore = useProjektiStore()
+const router        = useRouter()
+const route         = useRoute()
+
+const sidebarOtvoren = ref(false)
+
+// Zatvori sidebar pri navigaciji na mobitelu
+watch(() => route.path, () => { sidebarOtvoren.value = false })
+
+const projektjeAktivan = computed(() => !!route.params.projektId)
+
+function dodajProblemIzSidebara() {
+  router.push({ path: `/projekti/${route.params.projektId}`, query: { dodaj: '1' } })
+}
 
 const punoIme = computed(() =>
   authStore.profil

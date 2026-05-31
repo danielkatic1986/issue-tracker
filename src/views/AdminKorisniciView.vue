@@ -24,7 +24,7 @@
           <tr class="border-b border-gray-100">
             <th class="text-left text-xs font-medium text-gray-400 px-6 py-4">Korisnik</th>
             <th class="text-left text-xs font-medium text-gray-400 px-4 py-4">E-mail</th>
-            <th class="text-left text-xs font-medium text-gray-400 px-4 py-4">Uloga</th>
+            <th class="text-left text-xs font-medium text-gray-400 px-4 py-4">Uloge</th>
             <th class="text-left text-xs font-medium text-gray-400 px-4 py-4">Status</th>
             <th class="text-left text-xs font-medium text-gray-400 px-4 py-4">Član od</th>
           </tr>
@@ -53,16 +53,25 @@
             <td class="px-4 py-3 text-sm text-gray-500">{{ k.email }}</td>
 
             <td class="px-4 py-3">
-              <select
-                :value="k.uloga"
-                :disabled="k.id === authStore.user?.uid || k.sprema"
-                @change="promijeniUlogu(k, $event.target.value)"
-                class="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:border-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <option value="administrator">Administrator</option>
-                <option value="developer">Developer</option>
-                <option value="tester">Tester</option>
-              </select>
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <button
+                  v-for="uloga in SVE_ULOGE"
+                  :key="uloga.value"
+                  :disabled="k.id === authStore.user?.uid || k.sprema || (ulogeZa(k).includes(uloga.value) && ulogeZa(k).length === 1)"
+                  @click="toggleUloga(k, uloga.value)"
+                  :class="[
+                    'text-xs font-medium px-2 py-0.5 rounded-full border transition-colors',
+                    ulogeZa(k).includes(uloga.value)
+                      ? uloga.aktivnaKlasa
+                      : 'bg-white border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-500',
+                    (k.id === authStore.user?.uid || (ulogeZa(k).includes(uloga.value) && ulogeZa(k).length === 1))
+                      ? 'opacity-50 cursor-not-allowed'
+                      : 'cursor-pointer'
+                  ]"
+                >
+                  {{ uloga.label }}
+                </button>
+              </div>
             </td>
 
             <td class="px-4 py-3">
@@ -135,15 +144,23 @@
           </div>
 
           <div>
-            <label class="block text-xs font-medium text-gray-400 mb-1">Uloga</label>
-            <select
-              v-model="forma.uloga"
-              class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:border-gray-400"
-            >
-              <option value="administrator">Administrator</option>
-              <option value="developer">Developer</option>
-              <option value="tester">Tester</option>
-            </select>
+            <label class="block text-xs font-medium text-gray-400 mb-2">Uloge *</label>
+            <div class="flex gap-3">
+              <label
+                v-for="uloga in SVE_ULOGE"
+                :key="uloga.value"
+                :class="[
+                  'flex items-center gap-2 px-3 py-2 rounded-xl border cursor-pointer transition-colors select-none flex-1 justify-center',
+                  forma.uloge.includes(uloga.value)
+                    ? uloga.modalKlasa
+                    : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                ]"
+              >
+                <input type="checkbox" :value="uloga.value" v-model="forma.uloge" class="hidden" />
+                <span class="text-sm font-medium">{{ uloga.label }}</span>
+              </label>
+            </div>
+            <p v-if="forma.uloge.length === 0" class="text-xs text-red-400 mt-1">Odaberite barem jednu ulogu.</p>
           </div>
         </div>
 
@@ -155,7 +172,7 @@
           </button>
           <button
             @click="dodajKorisnika"
-            :disabled="dodavanje"
+            :disabled="dodavanje || forma.uloge.length === 0"
             class="px-5 py-2 text-sm bg-gray-800 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 transition-colors"
           >
             {{ dodavanje ? 'Kreiranje...' : 'Kreiraj korisnika' }}
@@ -173,11 +190,21 @@ import { initializeApp, deleteApp } from 'firebase/app'
 import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth'
 import { useAuthStore } from '@/stores/authStore'
 import { firebaseConfig } from '@/firebase'
-import { dohvatiSveKorisnike, azurirajKorisnika, kreirajKorisnika } from '@/services/korisnikService'
+import { dohvatiSveKorisnike, azurirajKorisnika, kreirajKorisnika, normalizirajUloge } from '@/services/korisnikService'
 
-const authStore = useAuthStore()
+const authStore  = useAuthStore()
 const korisnici  = ref([])
 const ucitavanje = ref(true)
+
+const SVE_ULOGE = [
+  { value: 'administrator', label: 'Admin',     aktivnaKlasa: 'bg-violet-100 border-violet-200 text-violet-700', modalKlasa: 'bg-violet-50 border-violet-300 text-violet-700' },
+  { value: 'developer',     label: 'Developer', aktivnaKlasa: 'bg-blue-100 border-blue-200 text-blue-700',       modalKlasa: 'bg-blue-50 border-blue-300 text-blue-700'       },
+  { value: 'tester',        label: 'Tester',    aktivnaKlasa: 'bg-green-100 border-green-200 text-green-700',    modalKlasa: 'bg-green-50 border-green-300 text-green-700'    },
+]
+
+function ulogeZa(k) {
+  return normalizirajUloge(k)
+}
 
 function inicijaliZa(k) {
   return ((k.ime?.charAt(0) ?? '') + (k.prezime?.charAt(0) ?? '')).toUpperCase() || '?'
@@ -190,12 +217,20 @@ function formatDatum(ts) {
   return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}.`
 }
 
-async function promijeniUlogu(korisnik, novaUloga) {
-  if (korisnik.uloga === novaUloga) return
+async function toggleUloga(korisnik, uloga) {
+  const trenutne = ulogeZa(korisnik)
+  let nove
+  if (trenutne.includes(uloga)) {
+    if (trenutne.length === 1) return // mora imati barem jednu
+    nove = trenutne.filter(u => u !== uloga)
+  } else {
+    nove = [...trenutne, uloga]
+  }
   korisnik.sprema = true
   try {
-    await azurirajKorisnika(korisnik.id, { uloga: novaUloga })
-    korisnik.uloga = novaUloga
+    await azurirajKorisnika(korisnik.id, { uloge: nove })
+    korisnik.uloge = nove
+    delete korisnik.uloga
   } finally {
     korisnik.sprema = false
   }
@@ -218,7 +253,7 @@ const formaGreska = ref('')
 const forma = ref(praznaForma())
 
 function praznaForma() {
-  return { ime: '', prezime: '', email: '', lozinka: '', uloga: 'developer' }
+  return { ime: '', prezime: '', email: '', lozinka: '', uloge: ['developer'] }
 }
 
 function zatvoriModal() {
@@ -244,9 +279,12 @@ async function dodajKorisnika() {
     formaGreska.value = 'Lozinka mora imati najmanje 6 znakova.'
     return
   }
+  if (forma.value.uloge.length === 0) {
+    formaGreska.value = 'Odaberite barem jednu ulogu.'
+    return
+  }
 
   dodavanje.value = true
-  // Koristimo privremenu drugu Firebase instancu da ne odjavimo admina
   let tmpApp = null
   try {
     tmpApp = initializeApp(firebaseConfig, `new-user-${Date.now()}`)
@@ -259,16 +297,15 @@ async function dodajKorisnika() {
       ime:     forma.value.ime.trim(),
       prezime: forma.value.prezime.trim(),
       email:   forma.value.email.trim(),
-      uloga:   forma.value.uloga,
+      uloge:   forma.value.uloge,
     })
 
-    // Dodaj u lokalnu listu
     korisnici.value.push({
       id:             uid,
       ime:            forma.value.ime.trim(),
       prezime:        forma.value.prezime.trim(),
       email:          forma.value.email.trim(),
-      uloga:          forma.value.uloga,
+      uloge:          forma.value.uloge,
       aktivan:        true,
       datumStvaranja: null,
       sprema:         false,

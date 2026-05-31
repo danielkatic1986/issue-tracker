@@ -40,9 +40,15 @@
       <div class="flex flex-col gap-1">
         <p class="text-lg font-semibold text-gray-800">{{ authStore.punoIme }}</p>
         <p class="text-sm text-gray-400">{{ authStore.user?.email }}</p>
-        <span :class="['mt-1 inline-block text-xs font-medium px-2.5 py-0.5 rounded-full w-fit', ulogaBoja]">
-          {{ ulogaLabel }}
-        </span>
+        <div class="mt-1 flex flex-wrap gap-1">
+          <span
+            v-for="badge in ulogeBadges"
+            :key="badge.label"
+            :class="['inline-block text-xs font-medium px-2.5 py-0.5 rounded-full', badge.boja]"
+          >
+            {{ badge.label }}
+          </span>
+        </div>
       </div>
     </div>
 
@@ -72,7 +78,7 @@
           </div>
           <div>
             <label class="block text-xs font-medium text-gray-400 mb-1">Uloga</label>
-            <input :value="ulogaLabel" type="text" disabled
+            <input :value="ulogaLabelTekst" type="text" disabled
               class="w-full border border-gray-100 rounded-lg px-3 py-2 text-sm bg-gray-50 text-gray-400 cursor-not-allowed" />
           </div>
         </div>
@@ -127,7 +133,7 @@ import { EmailAuthProvider, reauthenticateWithCredential, updatePassword } from 
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { auth, storage } from '@/firebase'
 import { useAuthStore } from '@/stores/authStore'
-import { azurirajKorisnika, ULOGE } from '@/services/korisnikService'
+import { azurirajKorisnika, ULOGE, normalizirajUloge } from '@/services/korisnikService'
 
 const authStore = useAuthStore()
 
@@ -137,17 +143,19 @@ const inicijali = computed(() => {
   return (i + p).toUpperCase() || '?'
 })
 
-const ulogaLabel = computed(() => ({
-  [ULOGE.ADMINISTRATOR]: 'Administrator',
-  [ULOGE.DEVELOPER]:     'Developer',
-  [ULOGE.TESTER]:        'Tester',
-}[authStore.profil?.uloga] ?? authStore.profil?.uloga ?? '—'))
+const ULOGA_META = {
+  [ULOGE.ADMINISTRATOR]: { label: 'Administrator', boja: 'bg-violet-100 text-violet-700' },
+  [ULOGE.DEVELOPER]:     { label: 'Developer',     boja: 'bg-blue-100 text-blue-700'    },
+  [ULOGE.TESTER]:        { label: 'Tester',         boja: 'bg-green-100 text-green-700'  },
+}
 
-const ulogaBoja = computed(() => ({
-  [ULOGE.ADMINISTRATOR]: 'bg-violet-100 text-violet-700',
-  [ULOGE.DEVELOPER]:     'bg-blue-100 text-blue-700',
-  [ULOGE.TESTER]:        'bg-green-100 text-green-700',
-}[authStore.profil?.uloga] ?? 'bg-gray-100 text-gray-600'))
+const ulogeBadges = computed(() =>
+  normalizirajUloge(authStore.profil).map(u => ULOGA_META[u] ?? { label: u, boja: 'bg-gray-100 text-gray-600' })
+)
+
+const ulogaLabelTekst = computed(() =>
+  ulogeBadges.value.map(b => b.label).join(', ') || '—'
+)
 
 const avatarUcitavanje = ref(false)
 const avatarGreska = ref('')

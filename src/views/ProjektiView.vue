@@ -46,7 +46,7 @@
       </div>
     </div>
 
-    <div class="bg-white rounded-2xl flex-1 overflow-auto">
+    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm flex-1 overflow-auto">
 
       <div v-if="ucitavanje" class="flex items-center justify-center h-48">
         <span class="text-sm text-gray-400">Učitavanje...</span>
@@ -72,82 +72,115 @@
         </button>
       </div>
 
-      <table v-else class="w-full">
-        <thead>
-          <tr class="border-b border-gray-100">
-            <th class="text-left text-xs font-medium text-gray-400 px-6 py-4 whitespace-nowrap">Naziv projekta</th>
-            <th class="text-left text-xs font-medium text-gray-400 px-4 py-4">Opis</th>
-            <th class="text-left text-xs font-medium text-gray-400 px-4 py-4">Problemi</th>
-            <th class="text-left text-xs font-medium text-gray-400 px-4 py-4">Status</th>
-            <th class="text-left text-xs font-medium text-gray-400 px-4 py-4 whitespace-nowrap">Zadnja izmjena</th>
-            <th class="text-left text-xs font-medium text-gray-400 px-4 py-4 whitespace-nowrap">Početak</th>
-            <th class="text-left text-xs font-medium text-gray-400 px-4 py-4">Rok</th>
-            <th class="text-left text-xs font-medium text-gray-400 px-4 py-4">Akcije</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr
+      <!-- Card lista na manjim ekranima -->
+      <div v-else-if="false" /><!-- placeholder, stvarni v-else je ispod -->
+      <template v-if="filtrirani.length > 0">
+
+        <!-- Mobilni card prikaz (< lg) -->
+        <div class="lg:hidden divide-y divide-gray-50">
+          <div
             v-for="projekt in filtrirani"
-            :key="projekt.id"
-            class="border-b border-gray-50 hover:bg-gray-50 transition-colors"
+            :key="'card-' + projekt.id"
+            @click="router.push(`/projekti/${projekt.id}`)"
+            class="px-5 py-4 hover:bg-gray-50 transition-colors cursor-pointer"
           >
-            <td class="px-6 py-4 text-sm font-medium text-gray-800">{{ projekt.naziv }}</td>
-            <td class="px-4 py-4 text-sm text-gray-500 max-w-[180px] truncate">{{ projekt.opis || '—' }}</td>
-            <td class="px-4 py-4 text-sm text-gray-600">{{ projekt.brojProblema }}</td>
-            <td class="px-4 py-4 text-sm text-gray-600">{{ formatStatus(projekt.status) }}</td>
-            <td class="px-4 py-4 text-sm text-gray-500 whitespace-nowrap">{{ formatDatum(projekt.datumKreiranja) }}</td>
-            <td class="px-4 py-4 text-sm text-gray-500 whitespace-nowrap">{{ formatDatum(projekt.datumKreiranja) }}</td>
-            <td class="px-4 py-4 text-sm text-gray-500 whitespace-nowrap">{{ formatDatum(projekt.datumZavrsetka) }}</td>
-            <td class="px-4 py-4">
-              <!-- zaključano za ne-admina -->
-              <div v-if="!authStore.jeAdministrator" class="relative group inline-block">
-                <button disabled class="w-7 h-7 flex items-center justify-center rounded-lg opacity-40 cursor-not-allowed">
-                  <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                    <rect x="5" y="11" width="14" height="10" rx="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M8 11V7a4 4 0 018 0v4"/>
-                  </svg>
-                </button>
-                <div class="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 px-2.5 py-1.5 bg-gray-800 text-white text-xs rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20">
-                  Samo administratori mogu uređivati projekte
-                  <div class="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-x-4 border-x-transparent border-t-4 border-t-gray-800"></div>
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0 flex-1">
+                <p class="text-sm font-semibold text-gray-800">{{ projekt.naziv }}</p>
+                <p v-if="projekt.opis" class="text-xs text-gray-500 mt-0.5 truncate">{{ projekt.opis }}</p>
+                <div class="flex items-center gap-3 mt-2 flex-wrap">
+                  <span class="flex items-center gap-1 text-xs text-gray-400">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126z"/>
+                    </svg>
+                    {{ projekt.brojProblema }} {{ projekt.brojProblema === 1 ? 'problem' : 'problema' }}
+                  </span>
+                  <span v-if="projekt.datumZavrsetka" class="flex items-center gap-1 text-xs text-gray-400">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"/>
+                    </svg>
+                    Rok: {{ formatDatum(projekt.datumZavrsetka) }}
+                  </span>
                 </div>
               </div>
-
-              <div v-if="authStore.jeAdministrator" class="relative">
-                <button
-                  @click.stop="toggleMeni(projekt.id)"
-                  class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors"
-                >
-                  <svg class="w-1 h-4 text-gray-400" fill="currentColor" viewBox="0 0 4 20">
-                    <circle cx="2" cy="2" r="2"/>
-                    <circle cx="2" cy="10" r="2"/>
-                    <circle cx="2" cy="18" r="2"/>
-                  </svg>
-                </button>
-
-                <!-- padajući izbornik -->
-                <div
-                  v-if="otvoreniMeni === projekt.id"
-                  class="absolute right-0 top-8 bg-white border border-gray-100 rounded-xl shadow-lg py-1 z-10 w-32"
-                >
-                  <button
-                    @click.stop="otvoriUredi(projekt)"
-                    class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                  >
-                    Uredi
+              <div class="flex flex-col items-end gap-2 shrink-0">
+                <span :class="statusBoja(projekt.status)" class="px-2 py-0.5 rounded-full text-xs font-medium">
+                  {{ formatStatus(projekt.status) }}
+                </span>
+                <div v-if="authStore.jeAdministrator" class="relative" @click.stop>
+                  <button @click.stop="toggleMeni(projekt.id)" class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors">
+                    <svg class="w-1 h-4 text-gray-400" fill="currentColor" viewBox="0 0 4 20">
+                      <circle cx="2" cy="2" r="2"/><circle cx="2" cy="10" r="2"/><circle cx="2" cy="18" r="2"/>
+                    </svg>
                   </button>
-                  <button
-                    @click.stop="potvrdiIzbris(projekt.id)"
-                    class="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-gray-50"
-                  >
-                    Obriši
-                  </button>
+                  <div v-if="otvoreniMeni === projekt.id" class="absolute right-0 top-8 bg-white border border-gray-100 rounded-xl shadow-lg py-1 z-10 w-32">
+                    <button @click.stop="otvoriUredi(projekt)" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">Uredi</button>
+                    <button @click.stop="potvrdiIzbris(projekt.id)" class="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-gray-50">Obriši</button>
+                  </div>
                 </div>
               </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Desktop tablica (lg+) -->
+        <table class="hidden lg:table w-full">
+          <thead>
+            <tr class="border-b border-gray-100">
+              <th class="text-left text-xs font-medium text-gray-400 px-6 py-4">Naziv projekta</th>
+              <th class="text-left text-xs font-medium text-gray-400 px-4 py-4">Opis</th>
+              <th class="text-center text-xs font-medium text-gray-400 px-4 py-4">Problemi</th>
+              <th class="text-left text-xs font-medium text-gray-400 px-4 py-4">Status</th>
+              <th class="text-left text-xs font-medium text-gray-400 px-4 py-4 whitespace-nowrap">Kreiran</th>
+              <th class="text-left text-xs font-medium text-gray-400 px-4 py-4">Rok</th>
+              <th class="text-left text-xs font-medium text-gray-400 px-4 py-4">Akcije</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="projekt in filtrirani"
+              :key="projekt.id"
+              @click="router.push(`/projekti/${projekt.id}`)"
+              class="border-b border-gray-50 hover:bg-gray-50 transition-colors cursor-pointer"
+            >
+              <td class="px-6 py-4 text-sm font-medium text-gray-800 whitespace-nowrap">{{ projekt.naziv }}</td>
+              <td class="px-4 py-4 text-sm text-gray-500 max-w-48 truncate">{{ projekt.opis || '—' }}</td>
+              <td class="px-4 py-4 text-sm text-gray-600 text-center">{{ projekt.brojProblema }}</td>
+              <td class="px-4 py-4">
+                <span :class="statusBoja(projekt.status)" class="px-2 py-0.5 rounded-full text-xs font-medium">{{ formatStatus(projekt.status) }}</span>
+              </td>
+              <td class="px-4 py-4 text-sm text-gray-500 whitespace-nowrap">{{ formatDatum(projekt.datumKreiranja) }}</td>
+              <td class="px-4 py-4 text-sm text-gray-500 whitespace-nowrap">{{ formatDatum(projekt.datumZavrsetka) }}</td>
+              <td class="px-4 py-4" @click.stop>
+                <div v-if="!authStore.jeAdministrator" class="relative group inline-block">
+                  <button disabled class="w-7 h-7 flex items-center justify-center rounded-lg opacity-40 cursor-not-allowed">
+                    <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                      <rect x="5" y="11" width="14" height="10" rx="2" stroke-linecap="round" stroke-linejoin="round"/>
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M8 11V7a4 4 0 018 0v4"/>
+                    </svg>
+                  </button>
+                  <div class="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 px-2.5 py-1.5 bg-gray-800 text-white text-xs rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20">
+                    Samo administratori mogu uređivati projekte
+                    <div class="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-x-4 border-x-transparent border-t-4 border-t-gray-800"></div>
+                  </div>
+                </div>
+                <div v-if="authStore.jeAdministrator" class="relative">
+                  <button @click.stop="toggleMeni(projekt.id)" class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors">
+                    <svg class="w-1 h-4 text-gray-400" fill="currentColor" viewBox="0 0 4 20">
+                      <circle cx="2" cy="2" r="2"/><circle cx="2" cy="10" r="2"/><circle cx="2" cy="18" r="2"/>
+                    </svg>
+                  </button>
+                  <div v-if="otvoreniMeni === projekt.id" class="absolute right-0 top-8 bg-white border border-gray-100 rounded-xl shadow-lg py-1 z-10 w-32">
+                    <button @click.stop="otvoriUredi(projekt)" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">Uredi</button>
+                    <button @click.stop="potvrdiIzbris(projekt.id)" class="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-gray-50">Obriši</button>
+                  </div>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+      </template>
     </div>
 
     <!-- modal za projekt -->
@@ -247,6 +280,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { useRouter } from 'vue-router'
 import {
   dohvatiSveProjekte,
   kreirajProjekt,
@@ -258,6 +292,7 @@ import { dohvatiSveProbleme } from '@/services/problemService'
 import { useAuthStore } from '@/stores/authStore'
 
 const authStore = useAuthStore()
+const router = useRouter()
 
 const projekti   = ref([])
 const ucitavanje = ref(true)
@@ -332,6 +367,15 @@ function formatStatus(s) {
     [STATUSI_PROJEKTA.PAUZIRAN]: 'Pauziran',
     [STATUSI_PROJEKTA.OTKAZAN]:  'Otkazan',
   }[s] ?? s
+}
+
+function statusBoja(s) {
+  return {
+    [STATUSI_PROJEKTA.AKTIVAN]:  'bg-blue-50 text-blue-600',
+    [STATUSI_PROJEKTA.ZAVRSEN]:  'bg-green-50 text-green-600',
+    [STATUSI_PROJEKTA.PAUZIRAN]: 'bg-amber-50 text-amber-600',
+    [STATUSI_PROJEKTA.OTKAZAN]:  'bg-red-50 text-red-500',
+  }[s] ?? 'bg-gray-100 text-gray-500'
 }
 
 function toggleMeni(id) {

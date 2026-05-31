@@ -115,10 +115,11 @@ export async function dohvatiProblemeZaTestera(projektId, testerUid) {
  */
 export async function azurirajProblem(projektId, problemId, podaci) {
   const ref = doc(db, 'projekti', projektId, 'problemi', problemId)
-  if (podaci.datumZavrsetka) {
-    podaci.datumZavrsetka = Timestamp.fromDate(new Date(podaci.datumZavrsetka))
+  const payload = { ...podaci, zadnjaMijenjanja: serverTimestamp() }
+  if (payload.datumZavrsetka) {
+    payload.datumZavrsetka = Timestamp.fromDate(new Date(payload.datumZavrsetka))
   }
-  await updateDoc(ref, podaci)
+  await updateDoc(ref, payload)
 }
 
 /**

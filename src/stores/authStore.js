@@ -6,21 +6,19 @@ import {
   onAuthStateChanged
 } from 'firebase/auth'
 import { defineStore } from 'pinia'
-import { kreirajKorisnika, dohvatiKorisnika, ULOGE } from '@/services/korisnikService'
+import { kreirajKorisnika, dohvatiKorisnika, ULOGE, normalizirajUloge } from '@/services/korisnikService'
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
-    // Firebase Auth user objekt (uid, email, ...)
     user: null,
-    // Firestore profil korisnika (ime, prezime, uloga, aktivan, ...)
     profil: null
   }),
 
   getters: {
     jeAutentificiran: (state) => !!state.user,
-    jeAdministrator: (state) => state.profil?.uloga === ULOGE.ADMINISTRATOR,
-    jeDeveloper: (state) => state.profil?.uloga === ULOGE.DEVELOPER,
-    jeTester: (state) => state.profil?.uloga === ULOGE.TESTER,
+    jeAdministrator: (state) => normalizirajUloge(state.profil).includes(ULOGE.ADMINISTRATOR),
+    jeDeveloper:     (state) => normalizirajUloge(state.profil).includes(ULOGE.DEVELOPER),
+    jeTester:        (state) => normalizirajUloge(state.profil).includes(ULOGE.TESTER),
     punoIme: (state) =>
       state.profil ? `${state.profil.ime} ${state.profil.prezime}` : (state.user?.email ?? '')
   },
@@ -32,10 +30,10 @@ export const useAuthStore = defineStore('auth', {
       this.profil = await dohvatiKorisnika(result.user.uid)
     },
 
-    async registracija(email, password, { ime, prezime, uloga = ULOGE.DEVELOPER }) {
+    async registracija(email, password, { ime, prezime, uloge = [ULOGE.DEVELOPER] }) {
       const result = await createUserWithEmailAndPassword(auth, email, password)
       this.user = result.user
-      await kreirajKorisnika(result.user.uid, { ime, prezime, email, uloga })
+      await kreirajKorisnika(result.user.uid, { ime, prezime, email, uloge })
       this.profil = await dohvatiKorisnika(result.user.uid)
     },
 
@@ -45,7 +43,6 @@ export const useAuthStore = defineStore('auth', {
       this.profil = null
     },
 
-    // čeka dok Firebase ne potvrdi auth stanje, onda razrješava Promise
     init() {
       return new Promise((resolve) => {
         onAuthStateChanged(auth, async (user) => {

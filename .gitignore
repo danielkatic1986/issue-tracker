@@ -33,6 +33,10 @@ Thumbs.db
 # Vite predmemorija
 .vite/
 
+# Uploadani fajlovi (čuvaju se lokalno, ne u gitu)
+public/uploads/*
+!public/uploads/.gitkeep
+
 # Osobna dokumentacija
 *.docx
 

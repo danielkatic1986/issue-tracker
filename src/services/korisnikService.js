@@ -18,14 +18,23 @@ export const ULOGE = {
   TESTER: 'tester'
 }
 
+// Normalizira stari format (uloga: string) i novi (uloge: string[]) u niz
+export function normalizirajUloge(profil) {
+  if (!profil) return []
+  if (Array.isArray(profil.uloge)) return profil.uloge
+  if (profil.uloga) return [profil.uloga]
+  return []
+}
+
 // lozinka se ne sprema ovdje, to je posao Firebase Autha
-export async function kreirajKorisnika(uid, { ime, prezime, email, uloga = ULOGE.DEVELOPER }) {
+export async function kreirajKorisnika(uid, { ime, prezime, email, uloga, uloge }) {
+  const finalUloge = uloge ?? (uloga ? [uloga] : [ULOGE.DEVELOPER])
   const ref = doc(db, 'korisnici', uid)
   await setDoc(ref, {
     ime,
     prezime,
     email,
-    uloga,
+    uloge: finalUloge,
     aktivan: true,
     datumStvaranja: serverTimestamp()
   })
@@ -44,7 +53,7 @@ export async function dohvatiSveKorisnike() {
 }
 
 export async function dohvatiKorisniciPoUlozi(uloga) {
-  const q = query(collection(db, 'korisnici'), where('uloga', '==', uloga))
+  const q = query(collection(db, 'korisnici'), where('uloge', 'array-contains', uloga))
   const snap = await getDocs(q)
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
 }

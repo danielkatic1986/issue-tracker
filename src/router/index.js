@@ -6,6 +6,8 @@ import ZaboravljenaLozinkaView from '@/views/ZaboravljenaLozinkaView.vue'
 import NotFoundView from '@/views/NotFoundView.vue'
 import DashboardView from '@/views/DashboardView.vue'
 import ProjektiView from '@/views/ProjektiView.vue'
+import ProjektDetailView from '@/views/ProjektDetailView.vue'
+import ProblemDetailView from '@/views/ProblemDetailView.vue'
 import KorisnikView from '@/views/KorisnikView.vue'
 import AdminKorisniciView from '@/views/AdminKorisniciView.vue'
 import { useAuthStore } from '@/stores/authStore'
@@ -28,6 +30,8 @@ const router = createRouter({
       children: [
         { path: '', component: DashboardView },
         { path: 'projekti', component: ProjektiView },
+        { path: 'projekti/:projektId', component: ProjektDetailView },
+        { path: 'projekti/:projektId/problemi/:problemId', component: ProblemDetailView },
         { path: 'korisnik', component: KorisnikView },
         { path: 'admin/korisnici', component: AdminKorisniciView, meta: { requiresAdmin: true } }
       ]
