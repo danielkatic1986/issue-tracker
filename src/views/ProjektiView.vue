@@ -115,6 +115,11 @@ function zatvoriMeni() {
   otvoreniMeni.value = null
 }
 
+function otvoriProjekt(projekt) {
+  if (!projekt.jeClan) return
+  router.push(`/projekti/${projekt.id}`)
+}
+
 function zatvoriModal() {
   prikazDodaj.value = false
   prikazUredi.value = false
@@ -284,7 +289,7 @@ onBeforeUnmount(() => {
           <div
             v-for="projekt in filtrirani"
             :key="'card-' + projekt.id"
-            @click="router.push(`/projekti/${projekt.id}`)"
+            @click="otvoriProjekt(projekt)"
             class="px-5 py-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer"
             :class="{ 'opacity-50': !projekt.jeClan }"
           >
@@ -346,7 +351,7 @@ onBeforeUnmount(() => {
             <tr
               v-for="projekt in filtrirani"
               :key="projekt.id"
-              @click="router.push(`/projekti/${projekt.id}`)"
+              @click="otvoriProjekt(projekt)"
               class="border-b border-gray-50 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer"
               :class="{ 'opacity-50': !projekt.jeClan }"
             >

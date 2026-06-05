@@ -260,6 +260,16 @@ async function ucitajProbleme() {
   ucitavanje.value = true
   try {
     const svi = await dohvatiSveProbleme(projektId)
+    if (!authStore.jeAdministrator) {
+      const uid = authStore.user?.uid
+      const jeClan = svi.some(
+        (p) => p.administratorUid === uid || p.testerUid === uid || p.developerUid === uid
+      )
+      if (!jeClan) {
+        router.replace('/projekti')
+        return
+      }
+    }
     problemi.value = await Promise.all(
       svi.map(async (p) => {
         const komentari = await dohvatiKomentare(projektId, p.id)
