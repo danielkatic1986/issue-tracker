@@ -1,23 +1,21 @@
 <template>
-  <div class="flex h-screen bg-slate-50 overflow-hidden">
+  <div class="flex h-screen bg-slate-50 dark:bg-gray-900 overflow-hidden">
 
-    <!-- Overlay za mobitel (klik zatvara sidebar) -->
     <div
       v-if="sidebarOtvoren"
       class="fixed inset-0 bg-black/40 z-20 md:hidden"
       @click="sidebarOtvoren = false"
     />
 
-    <!-- Sidebar — na mobitelu slide-in, na desktopu statičan -->
     <aside
       :class="[
-        'w-56 bg-white flex flex-col shrink-0 border-r border-gray-200 shadow-sm transition-transform duration-200',
+        'w-56 bg-white dark:bg-gray-800 flex flex-col shrink-0 border-r border-gray-200 dark:border-gray-700 shadow-sm transition-transform duration-200',
         'fixed top-0 left-0 h-full z-30 md:relative md:translate-x-0',
         sidebarOtvoren ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
       ]"
     >
       <div class="px-5 pt-6 pb-2">
-        <p class="text-xs font-medium text-gray-400 tracking-wide">Meni</p>
+        <p class="text-xs font-medium text-gray-400 dark:text-gray-500 tracking-wide">Meni</p>
       </div>
 
       <nav class="px-3 mt-1 space-y-0.5">
@@ -26,7 +24,9 @@
             @click="navigate"
             :class="[
               'flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer select-none text-sm font-medium transition-colors',
-              isExactActive ? 'bg-blue-50 text-gray-800' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'
+              isExactActive
+                ? 'bg-blue-50 text-gray-800 dark:bg-blue-950 dark:text-gray-100'
+                : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200'
             ]"
           >
             <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
@@ -43,7 +43,9 @@
             @click="navigate"
             :class="[
               'flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer select-none text-sm font-medium transition-colors',
-              isActive ? 'bg-blue-50 text-gray-800' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'
+              isActive
+                ? 'bg-blue-50 text-gray-800 dark:bg-blue-950 dark:text-gray-100'
+                : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200'
             ]"
           >
             <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -59,7 +61,9 @@
             @click="navigate"
             :class="[
               'flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer select-none text-sm font-medium transition-colors',
-              isActive ? 'bg-blue-50 text-gray-800' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'
+              isActive
+                ? 'bg-blue-50 text-gray-800 dark:bg-blue-950 dark:text-gray-100'
+                : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200'
             ]"
           >
             <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -70,15 +74,16 @@
         </RouterLink>
       </nav>
 
-      <!-- Sub-navigacija za aktivni projekt -->
-      <div v-if="projektjeAktivan" class="mt-3 px-3 border-t border-gray-100 pt-3">
-        <p class="text-xs text-gray-400 px-3 mb-1 truncate">Projekt: {{ projektiStore.aktivniProjekt?.naziv ?? '...' }}</p>
+      <div v-if="projektjeAktivan" class="mt-3 px-3 border-t border-gray-100 dark:border-gray-700 pt-3">
+        <p class="text-xs text-gray-400 dark:text-gray-500 px-3 mb-1 truncate">Projekt: {{ projektiStore.aktivniProjekt?.naziv ?? '...' }}</p>
         <RouterLink :to="`/projekti/${route.params.projektId}`" v-slot="{ isActive, navigate }" custom>
           <div
             @click="navigate"
             :class="[
               'flex items-center justify-between gap-3 px-3 py-2 rounded-xl cursor-pointer select-none text-sm font-medium transition-colors',
-              isActive ? 'bg-blue-50 text-gray-800' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'
+              isActive
+                ? 'bg-blue-50 text-gray-800 dark:bg-blue-950 dark:text-gray-100'
+                : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200'
             ]"
           >
             <div class="flex items-center gap-3">
@@ -102,7 +107,7 @@
 
       <div class="flex-1" />
 
-      <div class="px-4 border-t border-gray-100 pt-4 pb-3">
+      <div class="px-4 border-t border-gray-100 dark:border-gray-700 pt-4 pb-3">
         <div class="flex items-center gap-2.5 mb-4">
           <div class="w-8 h-8 rounded-full shrink-0 overflow-hidden">
             <img v-if="authStore.profil?.avatarUrl" :src="authStore.profil.avatarUrl" class="w-full h-full object-cover" />
@@ -110,19 +115,22 @@
               <span class="text-xs font-bold text-indigo-600 select-none">{{ inicijali }}</span>
             </div>
           </div>
-          <span class="text-sm font-medium text-gray-800 truncate">{{ punoIme }}</span>
+          <span class="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">{{ punoIme }}</span>
         </div>
         <div class="space-y-1.5">
-          <button class="w-full text-left text-xs text-gray-500 hover:text-gray-700 flex items-center gap-2 py-0.5">
-            <span class="text-gray-300 text-base leading-none">◦</span>
+          <button
+            @click="prikazPostavki = true"
+            class="w-full text-left text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 flex items-center gap-2 py-0.5"
+          >
+            <span class="text-gray-300 dark:text-gray-600 text-base leading-none">◦</span>
             Postavke aplikacije
           </button>
-          <button @click="router.push('/korisnik')" class="w-full text-left text-xs text-gray-500 hover:text-gray-700 flex items-center gap-2 py-0.5">
-            <span class="text-gray-300 text-base leading-none">◦</span>
+          <button @click="router.push('/korisnik')" class="w-full text-left text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 flex items-center gap-2 py-0.5">
+            <span class="text-gray-300 dark:text-gray-600 text-base leading-none">◦</span>
             Korisnički podaci
           </button>
-          <button @click="logout" class="w-full text-left text-xs text-gray-500 hover:text-gray-700 flex items-center gap-2 py-0.5">
-            <span class="text-gray-300 text-base leading-none">◦</span>
+          <button @click="logout" class="w-full text-left text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 flex items-center gap-2 py-0.5">
+            <span class="text-gray-300 dark:text-gray-600 text-base leading-none">◦</span>
             Odjava
           </button>
         </div>
@@ -134,20 +142,18 @@
             <path d="M20 8h-2.81c-.45-.78-1.07-1.45-1.82-1.96L17 4.41 15.59 3l-2.17 2.17C13.04 5.06 12.53 5 12 5c-.53 0-1.04.06-1.52.17L8.41 3 7 4.41l1.62 1.63C7.88 6.55 7.26 7.22 6.81 8H4v2h2.09c-.05.33-.09.66-.09 1v1H4v2h2v1c0 .34.04.67.09 1H4v2h2.81c1.04 1.79 2.97 3 5.19 3s4.15-1.21 5.19-3H20v-2h-2.09c.05-.33.09-.66.09-1v-1h2v-2h-2v-1c0-.34-.04-.67-.09-1H20V8zm-6 8h-4v-2h4v2zm0-4h-4v-2h4v2z"/>
           </svg>
         </div>
-        <span class="text-sm font-semibold text-gray-800">BugTracker</span>
+        <span class="text-sm font-semibold text-gray-800 dark:text-gray-100">BugTracker</span>
       </div>
     </aside>
 
-    <!-- Glavni sadržaj -->
     <main class="flex-1 overflow-hidden flex flex-col min-w-0">
 
-      <!-- Mobilna traka s hamburgerom -->
-      <div class="md:hidden flex items-center gap-3 px-4 h-12 bg-white border-b border-gray-200 shadow-sm shrink-0 z-10">
+      <div class="md:hidden flex items-center gap-3 px-4 h-12 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm shrink-0 z-10">
         <button
           @click="sidebarOtvoren = !sidebarOtvoren"
-          class="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+          class="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
         >
-          <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <svg class="w-5 h-5 text-gray-600 dark:text-gray-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"/>
           </svg>
         </button>
@@ -157,15 +163,60 @@
               <path d="M20 8h-2.81c-.45-.78-1.07-1.45-1.82-1.96L17 4.41 15.59 3l-2.17 2.17C13.04 5.06 12.53 5 12 5c-.53 0-1.04.06-1.52.17L8.41 3 7 4.41l1.62 1.63C7.88 6.55 7.26 7.22 6.81 8H4v2h2.09c-.05.33-.09.66-.09 1v1H4v2h2v1c0 .34.04.67.09 1H4v2h2.81c1.04 1.79 2.97 3 5.19 3s4.15-1.21 5.19-3H20v-2h-2.09c.05-.33.09-.66.09-1v-1h2v-2h-2v-1c0-.34-.04-.67-.09-1H20V8z"/>
             </svg>
           </div>
-          <span class="text-sm font-semibold text-gray-800">BugTracker</span>
+          <span class="text-sm font-semibold text-gray-800 dark:text-gray-100">BugTracker</span>
         </div>
       </div>
 
-      <!-- Na mobitelu roditelj scrolla, na desktopu view sam upravlja scrollom -->
       <div class="flex-1 overflow-y-auto md:overflow-hidden">
         <RouterView />
       </div>
     </main>
+
+    <!-- Modal za postavke aplikacije -->
+    <div
+      v-if="prikazPostavki"
+      class="fixed inset-0 bg-black/30 flex items-center justify-center z-50"
+      @click.self="prikazPostavki = false"
+    >
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-xs p-6" @click.stop>
+        <h2 class="text-base font-semibold text-gray-800 dark:text-gray-100 mb-6">Postavke aplikacije</h2>
+
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <svg v-if="themeStore.tamna" class="w-5 h-5 text-gray-400 dark:text-gray-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z"/>
+            </svg>
+            <svg v-else class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z"/>
+            </svg>
+            <span class="text-sm text-gray-700 dark:text-gray-200">Tamna tema</span>
+          </div>
+          <button
+            @click="themeStore.toggleTema()"
+            :class="[
+              'relative w-11 h-6 rounded-full transition-colors duration-200',
+              themeStore.tamna ? 'bg-blue-500' : 'bg-gray-200'
+            ]"
+          >
+            <span
+              :class="[
+                'absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200',
+                themeStore.tamna ? 'translate-x-5' : 'translate-x-0'
+              ]"
+            />
+          </button>
+        </div>
+
+        <div class="flex justify-end mt-6">
+          <button
+            @click="prikazPostavki = false"
+            class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+          >
+            Zatvori
+          </button>
+        </div>
+      </div>
+    </div>
 
   </div>
 </template>
@@ -175,15 +226,17 @@ import { ref, computed, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/authStore'
 import { useProjektiStore } from '@/stores/projektiStore'
+import { useThemeStore } from '@/stores/themeStore'
 
 const authStore     = useAuthStore()
 const projektiStore = useProjektiStore()
+const themeStore    = useThemeStore()
 const router        = useRouter()
 const route         = useRoute()
 
 const sidebarOtvoren = ref(false)
+const prikazPostavki = ref(false)
 
-// Zatvori sidebar pri navigaciji na mobitelu
 watch(() => route.path, () => { sidebarOtvoren.value = false })
 
 const projektjeAktivan = computed(() => !!route.params.projektId)

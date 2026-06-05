@@ -1,10 +1,9 @@
 <template>
   <div class="p-6 flex flex-col gap-4 max-w-3xl">
 
-    <h1 class="text-2xl font-bold text-gray-900">Korisnički podaci</h1>
+    <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Korisnički podaci</h1>
 
-    <!-- pregled profila -->
-    <div class="bg-white rounded-2xl p-6 flex items-center gap-5">
+    <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 flex items-center gap-5">
       <div class="relative w-16 h-16 shrink-0 group">
         <div class="w-16 h-16 rounded-full overflow-hidden">
           <img
@@ -38,8 +37,8 @@
       </div>
 
       <div class="flex flex-col gap-1">
-        <p class="text-lg font-semibold text-gray-800">{{ authStore.punoIme }}</p>
-        <p class="text-sm text-gray-400">{{ authStore.user?.email }}</p>
+        <p class="text-lg font-semibold text-gray-800 dark:text-gray-100">{{ authStore.punoIme }}</p>
+        <p class="text-sm text-gray-400 dark:text-gray-500">{{ authStore.user?.email }}</p>
         <div class="mt-1 flex flex-wrap gap-1">
           <span
             v-for="badge in ulogeBadges"
@@ -56,30 +55,29 @@
 
     <div class="grid grid-cols-2 gap-4">
 
-      <!-- osobni podaci -->
-      <div class="bg-white rounded-2xl p-6 flex flex-col gap-4">
-        <h2 class="text-sm font-semibold text-gray-800">Osobni podaci</h2>
+      <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 flex flex-col gap-4">
+        <h2 class="text-sm font-semibold text-gray-800 dark:text-gray-100">Osobni podaci</h2>
 
         <div class="flex flex-col gap-3">
           <div>
-            <label class="block text-xs font-medium text-gray-400 mb-1">Ime</label>
+            <label class="block text-xs font-medium text-gray-400 dark:text-gray-500 mb-1">Ime</label>
             <input v-model="forma.ime" type="text"
-              class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-gray-400" />
+              class="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:outline-none focus:border-gray-400 dark:focus:border-gray-500" />
           </div>
           <div>
-            <label class="block text-xs font-medium text-gray-400 mb-1">Prezime</label>
+            <label class="block text-xs font-medium text-gray-400 dark:text-gray-500 mb-1">Prezime</label>
             <input v-model="forma.prezime" type="text"
-              class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-gray-400" />
+              class="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:outline-none focus:border-gray-400 dark:focus:border-gray-500" />
           </div>
           <div>
-            <label class="block text-xs font-medium text-gray-400 mb-1">E-mail</label>
+            <label class="block text-xs font-medium text-gray-400 dark:text-gray-500 mb-1">E-mail</label>
             <input :value="authStore.user?.email" type="text" disabled
-              class="w-full border border-gray-100 rounded-lg px-3 py-2 text-sm bg-gray-50 text-gray-400 cursor-not-allowed" />
+              class="w-full border border-gray-100 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700/50 text-gray-400 dark:text-gray-500 cursor-not-allowed" />
           </div>
           <div>
-            <label class="block text-xs font-medium text-gray-400 mb-1">Uloga</label>
+            <label class="block text-xs font-medium text-gray-400 dark:text-gray-500 mb-1">Uloga</label>
             <input :value="ulogaLabelTekst" type="text" disabled
-              class="w-full border border-gray-100 rounded-lg px-3 py-2 text-sm bg-gray-50 text-gray-400 cursor-not-allowed" />
+              class="w-full border border-gray-100 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700/50 text-gray-400 dark:text-gray-500 cursor-not-allowed" />
           </div>
         </div>
 
@@ -92,25 +90,24 @@
         </button>
       </div>
 
-      <!-- promjena lozinke -->
-      <div class="bg-white rounded-2xl p-6 flex flex-col gap-4">
-        <h2 class="text-sm font-semibold text-gray-800">Promjena lozinke</h2>
+      <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 flex flex-col gap-4">
+        <h2 class="text-sm font-semibold text-gray-800 dark:text-gray-100">Promjena lozinke</h2>
 
         <div class="flex flex-col gap-3">
           <div>
-            <label class="block text-xs font-medium text-gray-400 mb-1">Trenutna lozinka</label>
+            <label class="block text-xs font-medium text-gray-400 dark:text-gray-500 mb-1">Trenutna lozinka</label>
             <input v-model="lozinka.trenutna" type="password"
-              class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-gray-400" />
+              class="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:outline-none focus:border-gray-400 dark:focus:border-gray-500" />
           </div>
           <div>
-            <label class="block text-xs font-medium text-gray-400 mb-1">Nova lozinka</label>
+            <label class="block text-xs font-medium text-gray-400 dark:text-gray-500 mb-1">Nova lozinka</label>
             <input v-model="lozinka.nova" type="password"
-              class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-gray-400" />
+              class="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:outline-none focus:border-gray-400 dark:focus:border-gray-500" />
           </div>
           <div>
-            <label class="block text-xs font-medium text-gray-400 mb-1">Potvrda nove lozinke</label>
+            <label class="block text-xs font-medium text-gray-400 dark:text-gray-500 mb-1">Potvrda nove lozinke</label>
             <input v-model="lozinka.potvrda" type="password"
-              class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-gray-400" />
+              class="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:outline-none focus:border-gray-400 dark:focus:border-gray-500" />
           </div>
         </div>
 

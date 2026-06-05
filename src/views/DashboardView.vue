@@ -2,39 +2,36 @@
   <div class="h-full overflow-y-auto">
     <div class="p-6 flex flex-col gap-4">
 
-      <!-- Gornji stat kartice -->
       <div class="grid grid-cols-3 gap-4">
-        <div class="bg-[#eceef7] rounded-2xl px-6 py-5">
-          <p class="text-xs font-medium text-gray-400 mb-3">Problemi</p>
-          <p class="text-3xl font-bold text-gray-800">{{ ucitavanje ? '—' : ukupnoProblema }}</p>
-          <p class="text-xs text-gray-400 mt-1.5">{{ ucitavanje ? '' : `${otvoreniProblemi} otvorenih` }}</p>
+        <div class="bg-[#eceef7] dark:bg-gray-700 rounded-2xl px-6 py-5">
+          <p class="text-xs font-medium text-gray-400 dark:text-gray-400 mb-3">Problemi</p>
+          <p class="text-3xl font-bold text-gray-800 dark:text-gray-100">{{ ucitavanje ? '—' : ukupnoProblema }}</p>
+          <p class="text-xs text-gray-400 dark:text-gray-400 mt-1.5">{{ ucitavanje ? '' : `${otvoreniProblemi} otvorenih` }}</p>
         </div>
-        <div class="bg-[#eceef7] rounded-2xl px-6 py-5">
-          <p class="text-xs font-medium text-gray-400 mb-3">Riješeno</p>
-          <p class="text-3xl font-bold text-gray-800">{{ ucitavanje ? '—' : ukupnoRjesenja }}</p>
-          <p class="text-xs text-gray-400 mt-1.5">{{ ucitavanje ? '' : rjesenostLabel }}</p>
+        <div class="bg-[#eceef7] dark:bg-gray-700 rounded-2xl px-6 py-5">
+          <p class="text-xs font-medium text-gray-400 dark:text-gray-400 mb-3">Riješeno</p>
+          <p class="text-3xl font-bold text-gray-800 dark:text-gray-100">{{ ucitavanje ? '—' : ukupnoRjesenja }}</p>
+          <p class="text-xs text-gray-400 dark:text-gray-400 mt-1.5">{{ ucitavanje ? '' : rjesenostLabel }}</p>
         </div>
-        <div class="bg-[#eceef7] rounded-2xl px-6 py-5">
-          <p class="text-xs font-medium text-gray-400 mb-3">Projekti</p>
-          <p class="text-3xl font-bold text-gray-800">{{ ucitavanje ? '—' : projekti.length }}</p>
-          <p class="text-xs text-gray-400 mt-1.5">{{ ucitavanje ? '' : `${aktivniProjekti} aktivnih` }}</p>
+        <div class="bg-[#eceef7] dark:bg-gray-700 rounded-2xl px-6 py-5">
+          <p class="text-xs font-medium text-gray-400 dark:text-gray-400 mb-3">Projekti</p>
+          <p class="text-3xl font-bold text-gray-800 dark:text-gray-100">{{ ucitavanje ? '—' : projekti.length }}</p>
+          <p class="text-xs text-gray-400 dark:text-gray-400 mt-1.5">{{ ucitavanje ? '' : `${aktivniProjekti} aktivnih` }}</p>
         </div>
       </div>
 
-      <!-- Srednji red: 3 panela -->
       <div class="grid grid-cols-3 gap-4">
 
-        <!-- Stanje problema -->
-        <div class="bg-white rounded-2xl p-5">
-          <h3 class="text-sm font-semibold text-gray-800 mb-4">Stanje problema</h3>
+        <div class="bg-white dark:bg-gray-800 rounded-2xl p-5">
+          <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-4">Stanje problema</h3>
           <div v-if="ucitavanje" class="py-8 flex items-center justify-center">
-            <span class="text-xs text-gray-300">Učitavanje...</span>
+            <span class="text-xs text-gray-300 dark:text-gray-600">Učitavanje...</span>
           </div>
           <div v-else-if="ukupnoProblema === 0" class="py-8 flex items-center justify-center">
-            <p class="text-sm text-gray-300">Nema prijavljenih problema</p>
+            <p class="text-sm text-gray-300 dark:text-gray-600">Nema prijavljenih problema</p>
           </div>
           <div v-else class="space-y-4">
-            <div class="flex rounded-full overflow-hidden h-2.5 bg-gray-100">
+            <div class="flex rounded-full overflow-hidden h-2.5 bg-gray-100 dark:bg-gray-600">
               <div v-if="otvoreniProblemi"   :style="{ width: pct(otvoreniProblemi) + '%' }"   class="bg-blue-400" />
               <div v-if="uTijekuProblemi"    :style="{ width: pct(uTijekuProblemi) + '%' }"    class="bg-amber-400" />
               <div v-if="ukupnoRjesenja"     :style="{ width: pct(ukupnoRjesenja) + '%' }"     class="bg-green-400" />
@@ -43,27 +40,26 @@
             <div class="space-y-3">
               <div v-for="row in statusReci" :key="row.label" class="flex items-center gap-3">
                 <span :class="['w-2 h-2 rounded-full shrink-0', row.dot]" />
-                <span class="text-xs text-gray-500 w-20 shrink-0">{{ row.label }}</span>
-                <div class="flex-1 bg-gray-100 rounded-full h-1.5">
+                <span class="text-xs text-gray-500 dark:text-gray-400 w-20 shrink-0">{{ row.label }}</span>
+                <div class="flex-1 bg-gray-100 dark:bg-gray-600 rounded-full h-1.5">
                   <div :class="['h-1.5 rounded-full transition-all duration-500', row.bar]" :style="{ width: pct(row.count) + '%' }" />
                 </div>
-                <span class="text-xs font-semibold text-gray-700 w-6 text-right">{{ row.count }}</span>
+                <span class="text-xs font-semibold text-gray-700 dark:text-gray-200 w-6 text-right">{{ row.count }}</span>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- Prioriteti -->
-        <div class="bg-white rounded-2xl p-5">
-          <h3 class="text-sm font-semibold text-gray-800 mb-4">Prioriteti</h3>
+        <div class="bg-white dark:bg-gray-800 rounded-2xl p-5">
+          <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-4">Prioriteti</h3>
           <div v-if="ucitavanje" class="py-8 flex items-center justify-center">
-            <span class="text-xs text-gray-300">Učitavanje...</span>
+            <span class="text-xs text-gray-300 dark:text-gray-600">Učitavanje...</span>
           </div>
           <div v-else-if="ukupnoProblema === 0" class="py-8 flex items-center justify-center">
-            <p class="text-sm text-gray-300">Nema prijavljenih problema</p>
+            <p class="text-sm text-gray-300 dark:text-gray-600">Nema prijavljenih problema</p>
           </div>
           <div v-else class="space-y-4">
-            <div class="flex rounded-full overflow-hidden h-2.5 bg-gray-100">
+            <div class="flex rounded-full overflow-hidden h-2.5 bg-gray-100 dark:bg-gray-600">
               <div v-if="nizakProblemi"    :style="{ width: pct(nizakProblemi) + '%' }"    class="bg-gray-400" />
               <div v-if="srednjiProblemi"  :style="{ width: pct(srednjiProblemi) + '%' }"  class="bg-blue-400" />
               <div v-if="visokiProblemi"   :style="{ width: pct(visokiProblemi) + '%' }"   class="bg-orange-400" />
@@ -72,36 +68,35 @@
             <div class="space-y-3">
               <div v-for="row in prioritetReci" :key="row.label" class="flex items-center gap-3">
                 <span :class="['w-2 h-2 rounded-full shrink-0', row.dot]" />
-                <span class="text-xs text-gray-500 w-20 shrink-0">{{ row.label }}</span>
-                <div class="flex-1 bg-gray-100 rounded-full h-1.5">
+                <span class="text-xs text-gray-500 dark:text-gray-400 w-20 shrink-0">{{ row.label }}</span>
+                <div class="flex-1 bg-gray-100 dark:bg-gray-600 rounded-full h-1.5">
                   <div :class="['h-1.5 rounded-full transition-all duration-500', row.bar]" :style="{ width: pct(row.count) + '%' }" />
                 </div>
-                <span class="text-xs font-semibold text-gray-700 w-6 text-right">{{ row.count }}</span>
+                <span class="text-xs font-semibold text-gray-700 dark:text-gray-200 w-6 text-right">{{ row.count }}</span>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- Nedavni problemi -->
-        <div class="bg-white rounded-2xl p-5">
-          <h3 class="text-sm font-semibold text-gray-800 mb-4">Nedavni problemi</h3>
+        <div class="bg-white dark:bg-gray-800 rounded-2xl p-5">
+          <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-4">Nedavni problemi</h3>
           <div v-if="ucitavanje" class="py-8 flex items-center justify-center">
-            <span class="text-xs text-gray-300">Učitavanje...</span>
+            <span class="text-xs text-gray-300 dark:text-gray-600">Učitavanje...</span>
           </div>
           <div v-else-if="nedavniProblemi.length === 0" class="py-8 flex items-center justify-center">
-            <span class="text-xs text-gray-300">Nema prijavljenih problema</span>
+            <span class="text-xs text-gray-300 dark:text-gray-600">Nema prijavljenih problema</span>
           </div>
           <ul v-else class="space-y-1">
             <li v-for="p in nedavniProblemi" :key="p.id">
               <RouterLink
                 :to="`/projekti/${p.projektId}/problemi/${p.id}`"
-                class="flex flex-col gap-0.5 px-3 py-2 rounded-xl hover:bg-gray-50 transition-colors group"
+                class="flex flex-col gap-0.5 px-3 py-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors group"
               >
-                <span class="text-xs font-medium text-gray-800 truncate group-hover:text-blue-600 transition-colors">
+                <span class="text-xs font-medium text-gray-800 dark:text-gray-100 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                   {{ p.naslov }}
                 </span>
                 <div class="flex items-center justify-between gap-2">
-                  <span class="text-xs text-gray-400 truncate">{{ p.projektNaziv }}</span>
+                  <span class="text-xs text-gray-400 dark:text-gray-500 truncate">{{ p.projektNaziv }}</span>
                   <span :class="['text-[10px] font-medium px-1.5 py-0.5 rounded-full shrink-0', statusBoja(p.status)]">
                     {{ p.status }}
                   </span>
@@ -113,27 +108,25 @@
 
       </div>
 
-      <!-- Donji red: Pregled projekata -->
-      <div class="bg-white rounded-2xl p-5">
-        <h3 class="text-sm font-semibold text-gray-800 mb-4">Pregled projekata</h3>
+      <div class="bg-white dark:bg-gray-800 rounded-2xl p-5">
+        <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-4">Pregled projekata</h3>
 
         <div v-if="ucitavanje" class="py-6 flex items-center justify-center">
-          <span class="text-xs text-gray-300">Učitavanje...</span>
+          <span class="text-xs text-gray-300 dark:text-gray-600">Učitavanje...</span>
         </div>
 
         <div v-else-if="projektStats.length === 0" class="py-6 flex items-center justify-center">
-          <span class="text-xs text-gray-300">Nema projekata</span>
+          <span class="text-xs text-gray-300 dark:text-gray-600">Nema projekata</span>
         </div>
 
         <div v-else>
-          <!-- Zaglavlje -->
           <div class="grid grid-cols-[1fr_60px_80px_80px_80px_120px] gap-4 px-3 mb-2">
-            <span class="text-xs text-gray-400 font-medium">Projekt</span>
-            <span class="text-xs text-gray-400 font-medium text-center">Ukupno</span>
-            <span class="text-xs text-gray-400 font-medium text-center">Otvoreni</span>
-            <span class="text-xs text-gray-400 font-medium text-center">U tijeku</span>
-            <span class="text-xs text-gray-400 font-medium text-center">Riješeni</span>
-            <span class="text-xs text-gray-400 font-medium text-center">Riješenost</span>
+            <span class="text-xs text-gray-400 dark:text-gray-500 font-medium">Projekt</span>
+            <span class="text-xs text-gray-400 dark:text-gray-500 font-medium text-center">Ukupno</span>
+            <span class="text-xs text-gray-400 dark:text-gray-500 font-medium text-center">Otvoreni</span>
+            <span class="text-xs text-gray-400 dark:text-gray-500 font-medium text-center">U tijeku</span>
+            <span class="text-xs text-gray-400 dark:text-gray-500 font-medium text-center">Riješeni</span>
+            <span class="text-xs text-gray-400 dark:text-gray-500 font-medium text-center">Riješenost</span>
           </div>
 
           <div class="space-y-1">
@@ -141,43 +134,43 @@
               v-for="ps in projektStats"
               :key="ps.id"
               :to="`/projekti/${ps.id}`"
-              class="grid grid-cols-[1fr_60px_80px_80px_80px_120px] gap-4 items-center px-3 py-2.5 rounded-xl hover:bg-gray-50 transition-colors group"
+              class="grid grid-cols-[1fr_60px_80px_80px_80px_120px] gap-4 items-center px-3 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors group"
             >
               <div class="min-w-0">
-                <span class="text-sm font-medium text-gray-800 truncate block group-hover:text-blue-600 transition-colors">
+                <span class="text-sm font-medium text-gray-800 dark:text-gray-100 truncate block group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                   {{ ps.naziv }}
                 </span>
-                <span :class="['text-[10px] font-medium', ps.status === 'aktivan' ? 'text-green-500' : 'text-gray-400']">
+                <span :class="['text-[10px] font-medium', ps.status === 'aktivan' ? 'text-green-500' : 'text-gray-400 dark:text-gray-500']">
                   {{ ps.status }}
                 </span>
               </div>
-              <span class="text-sm font-semibold text-gray-700 text-center">{{ ps.ukupno }}</span>
+              <span class="text-sm font-semibold text-gray-700 dark:text-gray-200 text-center">{{ ps.ukupno }}</span>
               <div class="flex justify-center">
                 <span v-if="ps.otvoreni" class="text-xs font-medium bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full">
                   {{ ps.otvoreni }}
                 </span>
-                <span v-else class="text-xs text-gray-300">—</span>
+                <span v-else class="text-xs text-gray-300 dark:text-gray-600">—</span>
               </div>
               <div class="flex justify-center">
                 <span v-if="ps.uTijeku" class="text-xs font-medium bg-amber-100 text-amber-600 px-2 py-0.5 rounded-full">
                   {{ ps.uTijeku }}
                 </span>
-                <span v-else class="text-xs text-gray-300">—</span>
+                <span v-else class="text-xs text-gray-300 dark:text-gray-600">—</span>
               </div>
               <div class="flex justify-center">
                 <span v-if="ps.rjeseni" class="text-xs font-medium bg-green-100 text-green-600 px-2 py-0.5 rounded-full">
                   {{ ps.rjeseni }}
                 </span>
-                <span v-else class="text-xs text-gray-300">—</span>
+                <span v-else class="text-xs text-gray-300 dark:text-gray-600">—</span>
               </div>
               <div class="flex items-center gap-2">
-                <div class="flex-1 bg-gray-100 rounded-full h-1.5">
+                <div class="flex-1 bg-gray-100 dark:bg-gray-600 rounded-full h-1.5">
                   <div
                     class="h-1.5 rounded-full bg-green-400 transition-all duration-500"
                     :style="{ width: ps.pct + '%' }"
                   />
                 </div>
-                <span class="text-xs text-gray-500 w-8 text-right shrink-0">{{ ps.pct }}%</span>
+                <span class="text-xs text-gray-500 dark:text-gray-400 w-8 text-right shrink-0">{{ ps.pct }}%</span>
               </div>
             </RouterLink>
           </div>

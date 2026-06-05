@@ -2,10 +2,10 @@
   <div class="p-6 flex flex-col gap-4">
 
     <div class="flex items-center gap-3">
-      <h1 class="text-2xl font-bold text-gray-900">Upravljanje korisnicima</h1>
+      <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Upravljanje korisnicima</h1>
       <button
         @click="prikazDodaj = true"
-        class="w-8 h-8 rounded-full border-2 border-gray-300 flex items-center justify-center text-gray-400 hover:border-gray-500 hover:text-gray-600 transition-colors"
+        class="w-8 h-8 rounded-full border-2 border-gray-300 dark:border-gray-600 flex items-center justify-center text-gray-400 dark:text-gray-500 hover:border-gray-500 dark:hover:border-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
       >
         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
@@ -13,27 +13,27 @@
       </button>
     </div>
 
-    <div class="bg-white rounded-2xl overflow-hidden">
+    <div class="bg-white dark:bg-gray-800 rounded-2xl overflow-hidden">
 
       <div v-if="ucitavanje" class="flex items-center justify-center h-48">
-        <span class="text-sm text-gray-400">Učitavanje...</span>
+        <span class="text-sm text-gray-400 dark:text-gray-500">Učitavanje...</span>
       </div>
 
       <table v-else class="w-full">
         <thead>
-          <tr class="border-b border-gray-100">
-            <th class="text-left text-xs font-medium text-gray-400 px-6 py-4">Korisnik</th>
-            <th class="text-left text-xs font-medium text-gray-400 px-4 py-4">E-mail</th>
-            <th class="text-left text-xs font-medium text-gray-400 px-4 py-4">Uloge</th>
-            <th class="text-left text-xs font-medium text-gray-400 px-4 py-4">Status</th>
-            <th class="text-left text-xs font-medium text-gray-400 px-4 py-4">Član od</th>
+          <tr class="border-b border-gray-100 dark:border-gray-700">
+            <th class="text-left text-xs font-medium text-gray-400 dark:text-gray-500 px-6 py-4">Korisnik</th>
+            <th class="text-left text-xs font-medium text-gray-400 dark:text-gray-500 px-4 py-4">E-mail</th>
+            <th class="text-left text-xs font-medium text-gray-400 dark:text-gray-500 px-4 py-4">Uloge</th>
+            <th class="text-left text-xs font-medium text-gray-400 dark:text-gray-500 px-4 py-4">Status</th>
+            <th class="text-left text-xs font-medium text-gray-400 dark:text-gray-500 px-4 py-4">Član od</th>
           </tr>
         </thead>
         <tbody>
           <tr
             v-for="k in korisnici"
             :key="k.id"
-            class="border-b border-gray-50 hover:bg-gray-50 transition-colors"
+            class="border-b border-gray-50 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
           >
             <td class="px-6 py-3">
               <div class="flex items-center gap-3">
@@ -44,13 +44,13 @@
                   </div>
                 </div>
                 <div>
-                  <p class="text-sm font-medium text-gray-800">{{ k.ime }} {{ k.prezime }}</p>
-                  <p v-if="k.id === authStore.user?.uid" class="text-xs text-gray-400">(vi)</p>
+                  <p class="text-sm font-medium text-gray-800 dark:text-gray-100">{{ k.ime }} {{ k.prezime }}</p>
+                  <p v-if="k.id === authStore.user?.uid" class="text-xs text-gray-400 dark:text-gray-500">(vi)</p>
                 </div>
               </div>
             </td>
 
-            <td class="px-4 py-3 text-sm text-gray-500">{{ k.email }}</td>
+            <td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{{ k.email }}</td>
 
             <td class="px-4 py-3">
               <div class="flex items-center gap-1.5 flex-wrap">
@@ -63,7 +63,7 @@
                     'text-xs font-medium px-2 py-0.5 rounded-full border transition-colors',
                     ulogeZa(k).includes(uloga.value)
                       ? uloga.aktivnaKlasa
-                      : 'bg-white border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-500',
+                      : 'bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-400 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-500 hover:text-gray-500 dark:hover:text-gray-300',
                     (k.id === authStore.user?.uid || (ulogeZa(k).includes(uloga.value) && ulogeZa(k).length === 1))
                       ? 'opacity-50 cursor-not-allowed'
                       : 'cursor-pointer'
@@ -82,69 +82,68 @@
                   'flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed',
                   k.aktivan
                     ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                    : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
                 ]"
               >
-                <span :class="['w-1.5 h-1.5 rounded-full', k.aktivan ? 'bg-green-500' : 'bg-gray-400']" />
+                <span :class="['w-1.5 h-1.5 rounded-full', k.aktivan ? 'bg-green-500' : 'bg-gray-400 dark:bg-gray-500']" />
                 {{ k.aktivan ? 'Aktivan' : 'Neaktivan' }}
               </button>
             </td>
 
-            <td class="px-4 py-3 text-sm text-gray-400">{{ formatDatum(k.datumStvaranja) }}</td>
+            <td class="px-4 py-3 text-sm text-gray-400 dark:text-gray-500">{{ formatDatum(k.datumStvaranja) }}</td>
           </tr>
         </tbody>
       </table>
     </div>
 
-    <!-- modal za novog korisnika -->
     <div
       v-if="prikazDodaj"
       class="fixed inset-0 bg-black/30 flex items-center justify-center z-50"
       @click.self="zatvoriModal"
     >
-      <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6" @click.stop>
-        <h2 class="text-lg font-semibold text-gray-800 mb-5">Novi korisnik</h2>
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-md p-6" @click.stop>
+        <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-5">Novi korisnik</h2>
 
         <div class="space-y-3">
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="block text-xs font-medium text-gray-400 mb-1">Ime *</label>
+              <label class="block text-xs font-medium text-gray-400 dark:text-gray-500 mb-1">Ime *</label>
               <input
                 v-model="forma.ime"
                 type="text"
-                class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-gray-400"
+                class="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:outline-none focus:border-gray-400 dark:focus:border-gray-500"
               />
             </div>
             <div>
-              <label class="block text-xs font-medium text-gray-400 mb-1">Prezime *</label>
+              <label class="block text-xs font-medium text-gray-400 dark:text-gray-500 mb-1">Prezime *</label>
               <input
                 v-model="forma.prezime"
                 type="text"
-                class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-gray-400"
+                class="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:outline-none focus:border-gray-400 dark:focus:border-gray-500"
               />
             </div>
           </div>
 
           <div>
-            <label class="block text-xs font-medium text-gray-400 mb-1">E-mail *</label>
+            <label class="block text-xs font-medium text-gray-400 dark:text-gray-500 mb-1">E-mail *</label>
             <input
               v-model="forma.email"
               type="email"
-              class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-gray-400"
+              class="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:outline-none focus:border-gray-400 dark:focus:border-gray-500"
             />
           </div>
 
           <div>
-            <label class="block text-xs font-medium text-gray-400 mb-1">Lozinka * (min. 6 znakova)</label>
+            <label class="block text-xs font-medium text-gray-400 dark:text-gray-500 mb-1">Lozinka * (min. 6 znakova)</label>
             <input
               v-model="forma.lozinka"
               type="password"
-              class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-gray-400"
+              class="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:outline-none focus:border-gray-400 dark:focus:border-gray-500"
             />
           </div>
 
           <div>
-            <label class="block text-xs font-medium text-gray-400 mb-2">Uloge *</label>
+            <label class="block text-xs font-medium text-gray-400 dark:text-gray-500 mb-2">Uloge *</label>
             <div class="flex gap-3">
               <label
                 v-for="uloga in SVE_ULOGE"
@@ -153,7 +152,7 @@
                   'flex items-center gap-2 px-3 py-2 rounded-xl border cursor-pointer transition-colors select-none flex-1 justify-center',
                   forma.uloge.includes(uloga.value)
                     ? uloga.modalKlasa
-                    : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                    : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-500'
                 ]"
               >
                 <input type="checkbox" :value="uloga.value" v-model="forma.uloge" class="hidden" />
@@ -167,7 +166,7 @@
         <p v-if="formaGreska" class="text-xs text-red-500 mt-3">{{ formaGreska }}</p>
 
         <div class="flex justify-end gap-3 mt-6">
-          <button @click="zatvoriModal" class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700">
+          <button @click="zatvoriModal" class="px-4 py-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">
             Odustani
           </button>
           <button
@@ -221,7 +220,7 @@ async function toggleUloga(korisnik, uloga) {
   const trenutne = ulogeZa(korisnik)
   let nove
   if (trenutne.includes(uloga)) {
-    if (trenutne.length === 1) return // mora imati barem jednu
+    if (trenutne.length === 1) return
     nove = trenutne.filter(u => u !== uloga)
   } else {
     nove = [...trenutne, uloga]
