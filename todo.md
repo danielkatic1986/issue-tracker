@@ -1,4 +1,6 @@
 # Trenutni zadaci
+- snimiti video
+- sastaviti detaljnu dokumentaciju
 
 ## Koncept PI
 

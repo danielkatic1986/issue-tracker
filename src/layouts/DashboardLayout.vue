@@ -1,3 +1,51 @@
+<script setup>
+// Glavni layout za zaštićene stranice — sadrži sidebar s navigacijom i <main> s RouterViewom.
+// Na mobitelu je sidebar skriven i otvara se kao overlay; na desktopu je uvijek vidljiv.
+
+import { ref, computed, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
+import { useAuthStore } from '@/stores/authStore'
+import { useProjektiStore } from '@/stores/projektiStore'
+import { useThemeStore } from '@/stores/themeStore'
+
+const authStore     = useAuthStore()
+const projektiStore = useProjektiStore()
+const themeStore    = useThemeStore()
+const router        = useRouter()
+const route         = useRoute()
+
+const sidebarOtvoren = ref(false)
+const prikazPostavki = ref(false)
+
+// Zatvori mobilni sidebar automatski pri svakoj navigaciji
+watch(() => route.path, () => { sidebarOtvoren.value = false })
+
+// Prikaži podsekciju "Projekt / Problemi" u sidebaru samo dok je korisnik na rutama projekta
+const projektjeAktivan = computed(() => !!route.params.projektId)
+
+// Preusmjeri na stranicu projekta s ?dodaj=1 — ProjektDetailView watch otvori modal za novi problem
+function dodajProblemIzSidebara() {
+  router.push({ path: `/projekti/${route.params.projektId}`, query: { dodaj: '1' } })
+}
+
+const punoIme = computed(() =>
+  authStore.profil
+    ? `${authStore.profil.ime} ${authStore.profil.prezime}`
+    : (authStore.user?.email ?? '')
+)
+
+const inicijali = computed(() => {
+  const i = authStore.profil?.ime?.charAt(0) ?? ''
+  const p = authStore.profil?.prezime?.charAt(0) ?? ''
+  return (i + p).toUpperCase() || '?'
+})
+
+async function logout() {
+  await authStore.logout()
+  router.push('/login')
+}
+</script>
+
 <template>
   <div class="flex h-screen bg-slate-50 dark:bg-gray-900 overflow-hidden">
 
@@ -220,45 +268,3 @@
 
   </div>
 </template>
-
-<script setup>
-import { ref, computed, watch } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
-import { useAuthStore } from '@/stores/authStore'
-import { useProjektiStore } from '@/stores/projektiStore'
-import { useThemeStore } from '@/stores/themeStore'
-
-const authStore     = useAuthStore()
-const projektiStore = useProjektiStore()
-const themeStore    = useThemeStore()
-const router        = useRouter()
-const route         = useRoute()
-
-const sidebarOtvoren = ref(false)
-const prikazPostavki = ref(false)
-
-watch(() => route.path, () => { sidebarOtvoren.value = false })
-
-const projektjeAktivan = computed(() => !!route.params.projektId)
-
-function dodajProblemIzSidebara() {
-  router.push({ path: `/projekti/${route.params.projektId}`, query: { dodaj: '1' } })
-}
-
-const punoIme = computed(() =>
-  authStore.profil
-    ? `${authStore.profil.ime} ${authStore.profil.prezime}`
-    : (authStore.user?.email ?? '')
-)
-
-const inicijali = computed(() => {
-  const i = authStore.profil?.ime?.charAt(0) ?? ''
-  const p = authStore.profil?.prezime?.charAt(0) ?? ''
-  return (i + p).toUpperCase() || '?'
-})
-
-async function logout() {
-  await authStore.logout()
-  router.push('/login')
-}
-</script>

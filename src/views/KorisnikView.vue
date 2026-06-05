@@ -1,3 +1,148 @@
+<script setup>
+// Stranica profila prijavljenog korisnika.
+// Omogućuje promjenu osobnih podataka, lozinke i profilne slike (avatara).
+
+import { ref, computed } from 'vue'
+import { EmailAuthProvider, reauthenticateWithCredential, updatePassword } from 'firebase/auth'
+import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage'
+import { auth, storage } from '@/firebase'
+import { useAuthStore } from '@/stores/authStore'
+import { azurirajKorisnika, ULOGE, normalizirajUloge } from '@/services/korisnikService'
+
+const authStore = useAuthStore()
+
+// Generiraj inicijale (npr. "DK") za avatar placeholder kada korisnik nema profilnu sliku
+const inicijali = computed(() => {
+  const i = authStore.profil?.ime?.charAt(0) ?? ''
+  const p = authStore.profil?.prezime?.charAt(0) ?? ''
+  return (i + p).toUpperCase() || '?'
+})
+
+// Definicija boja po ulozi za prikaz badge-ova ispod imena
+const ULOGA_META = {
+  [ULOGE.ADMINISTRATOR]: { label: 'Administrator', boja: 'bg-violet-100 text-violet-700' },
+  [ULOGE.DEVELOPER]:     { label: 'Developer',     boja: 'bg-blue-100 text-blue-700'    },
+  [ULOGE.TESTER]:        { label: 'Tester',         boja: 'bg-green-100 text-green-700'  },
+}
+
+const ulogeBadges = computed(() =>
+  normalizirajUloge(authStore.profil).map(u => ULOGA_META[u] ?? { label: u, boja: 'bg-gray-100 text-gray-600' })
+)
+
+// Tekstualni prikaz uloga za disabled input polje
+const ulogaLabelTekst = computed(() =>
+  ulogeBadges.value.map(b => b.label).join(', ') || '—'
+)
+
+const avatarUcitavanje = ref(false)
+const avatarGreska     = ref('')
+
+// Upload profilne slike na Firebase Storage, dohvati javni URL i spremi ga u Firestore profil.
+// Nakon uspjeha ažuriramo i lokalni authStore.profil kako bi se slika odmah prikazala.
+async function uploadAvatar(event) {
+  const file = event.target.files[0]
+  if (!file) return
+
+  const MAX_MB = 5
+  if (file.size > MAX_MB * 1024 * 1024) {
+    avatarGreska.value = `Slika je prevelika. Maksimalna veličina je ${MAX_MB} MB.`
+    event.target.value = ''
+    return
+  }
+
+  avatarGreska.value    = ''
+  avatarUcitavanje.value = true
+  try {
+    const path    = `avatarji/${authStore.user.uid}/avatar`
+    const fileRef = storageRef(storage, path)
+    await uploadBytes(fileRef, file)
+    const url = await getDownloadURL(fileRef)
+    await azurirajKorisnika(authStore.user.uid, { avatarUrl: url })
+    authStore.profil = { ...authStore.profil, avatarUrl: url }
+  } catch {
+    avatarGreska.value = 'Greška pri uploadu. Pokušajte ponovo.'
+  } finally {
+    avatarUcitavanje.value = false
+    event.target.value     = ''
+  }
+}
+
+// Forma za promjenu osobnih podataka (ime i prezime)
+const forma       = ref({ ime: authStore.profil?.ime ?? '', prezime: authStore.profil?.prezime ?? '' })
+const osobniGreska = ref('')
+const osobniUspjeh = ref('')
+const spremaOsobne = ref(false)
+
+async function spremiOsobne() {
+  osobniGreska.value = ''
+  osobniUspjeh.value = ''
+  if (!forma.value.ime.trim() || !forma.value.prezime.trim()) {
+    osobniGreska.value = 'Ime i prezime su obavezni.'
+    return
+  }
+  spremaOsobne.value = true
+  try {
+    await azurirajKorisnika(authStore.user.uid, {
+      ime:     forma.value.ime.trim(),
+      prezime: forma.value.prezime.trim(),
+    })
+    // Ažuriraj lokalni store kako bi se novo ime prikazalo u navigaciji odmah
+    authStore.profil = { ...authStore.profil, ime: forma.value.ime.trim(), prezime: forma.value.prezime.trim() }
+    osobniUspjeh.value = 'Podaci su uspješno spremljeni.'
+  } catch {
+    osobniGreska.value = 'Greška pri spremanju. Pokušajte ponovo.'
+  } finally {
+    spremaOsobne.value = false
+  }
+}
+
+// Forma za promjenu lozinke
+const lozinka     = ref({ trenutna: '', nova: '', potvrda: '' })
+const lozinkaGreska = ref('')
+const lozinkaUspjeh = ref('')
+const spremaLozinku = ref(false)
+
+// Firebase zahtijeva reautentifikaciju prije promjene lozinke iz sigurnosnih razloga —
+// korisnik mora potvrditi trenutnu lozinku čak i ako je već prijavljen
+const LOZINKA_GRESKE = {
+  'auth/wrong-password':        'Trenutna lozinka nije ispravna.',
+  'auth/invalid-credential':    'Trenutna lozinka nije ispravna.',
+  'auth/too-many-requests':     'Previše pokušaja. Pokušajte kasnije.',
+  'auth/weak-password':         'Nova lozinka je preslaba (min. 6 znakova).',
+  'auth/requires-recent-login': 'Sesija je istekla. Odjavite se i prijavite ponovo.',
+}
+
+async function promijeniLozinku() {
+  lozinkaGreska.value = ''
+  lozinkaUspjeh.value = ''
+  if (!lozinka.value.trenutna || !lozinka.value.nova || !lozinka.value.potvrda) {
+    lozinkaGreska.value = 'Sva polja su obavezna.'
+    return
+  }
+  if (lozinka.value.nova !== lozinka.value.potvrda) {
+    lozinkaGreska.value = 'Nova lozinka i potvrda se ne podudaraju.'
+    return
+  }
+  if (lozinka.value.nova.length < 6) {
+    lozinkaGreska.value = 'Nova lozinka mora imati najmanje 6 znakova.'
+    return
+  }
+  spremaLozinku.value = true
+  try {
+    const user       = auth.currentUser
+    const credential = EmailAuthProvider.credential(user.email, lozinka.value.trenutna)
+    await reauthenticateWithCredential(user, credential) // provjeri trenutnu lozinku
+    await updatePassword(user, lozinka.value.nova)
+    lozinka.value      = { trenutna: '', nova: '', potvrda: '' }
+    lozinkaUspjeh.value = 'Lozinka je uspješno promijenjena.'
+  } catch (e) {
+    lozinkaGreska.value = LOZINKA_GRESKE[e.code] ?? 'Greška pri promjeni lozinke.'
+  } finally {
+    spremaLozinku.value = false
+  }
+}
+</script>
+
 <template>
   <div class="p-6 flex flex-col gap-4 max-w-3xl">
 
@@ -123,138 +268,3 @@
     </div>
   </div>
 </template>
-
-<script setup>
-import { ref, computed } from 'vue'
-import { EmailAuthProvider, reauthenticateWithCredential, updatePassword } from 'firebase/auth'
-import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage'
-import { auth, storage } from '@/firebase'
-import { useAuthStore } from '@/stores/authStore'
-import { azurirajKorisnika, ULOGE, normalizirajUloge } from '@/services/korisnikService'
-
-const authStore = useAuthStore()
-
-const inicijali = computed(() => {
-  const i = authStore.profil?.ime?.charAt(0) ?? ''
-  const p = authStore.profil?.prezime?.charAt(0) ?? ''
-  return (i + p).toUpperCase() || '?'
-})
-
-const ULOGA_META = {
-  [ULOGE.ADMINISTRATOR]: { label: 'Administrator', boja: 'bg-violet-100 text-violet-700' },
-  [ULOGE.DEVELOPER]:     { label: 'Developer',     boja: 'bg-blue-100 text-blue-700'    },
-  [ULOGE.TESTER]:        { label: 'Tester',         boja: 'bg-green-100 text-green-700'  },
-}
-
-const ulogeBadges = computed(() =>
-  normalizirajUloge(authStore.profil).map(u => ULOGA_META[u] ?? { label: u, boja: 'bg-gray-100 text-gray-600' })
-)
-
-const ulogaLabelTekst = computed(() =>
-  ulogeBadges.value.map(b => b.label).join(', ') || '—'
-)
-
-const avatarUcitavanje = ref(false)
-const avatarGreska = ref('')
-
-async function uploadAvatar(event) {
-  const file = event.target.files[0]
-  if (!file) return
-
-  const MAX_MB = 5
-  if (file.size > MAX_MB * 1024 * 1024) {
-    avatarGreska.value = `Slika je prevelika. Maksimalna veličina je ${MAX_MB} MB.`
-    event.target.value = ''
-    return
-  }
-
-  avatarGreska.value = ''
-  avatarUcitavanje.value = true
-  try {
-    const path = `avatarji/${authStore.user.uid}/avatar`
-    const fileRef = storageRef(storage, path)
-    await uploadBytes(fileRef, file)
-    const url = await getDownloadURL(fileRef)
-    await azurirajKorisnika(authStore.user.uid, { avatarUrl: url })
-    authStore.profil = { ...authStore.profil, avatarUrl: url }
-  } catch {
-    avatarGreska.value = 'Greška pri uploadu. Pokušajte ponovo.'
-  } finally {
-    avatarUcitavanje.value = false
-    event.target.value = ''
-  }
-}
-
-const forma = ref({
-  ime:     authStore.profil?.ime     ?? '',
-  prezime: authStore.profil?.prezime ?? '',
-})
-const osobniGreska = ref('')
-const osobniUspjeh = ref('')
-const spremaOsobne = ref(false)
-
-async function spremiOsobne() {
-  osobniGreska.value = ''
-  osobniUspjeh.value = ''
-  if (!forma.value.ime.trim() || !forma.value.prezime.trim()) {
-    osobniGreska.value = 'Ime i prezime su obavezni.'
-    return
-  }
-  spremaOsobne.value = true
-  try {
-    await azurirajKorisnika(authStore.user.uid, {
-      ime:     forma.value.ime.trim(),
-      prezime: forma.value.prezime.trim(),
-    })
-    authStore.profil = { ...authStore.profil, ime: forma.value.ime.trim(), prezime: forma.value.prezime.trim() }
-    osobniUspjeh.value = 'Podaci su uspješno spremljeni.'
-  } catch {
-    osobniGreska.value = 'Greška pri spremanju. Pokušajte ponovo.'
-  } finally {
-    spremaOsobne.value = false
-  }
-}
-
-const lozinka = ref({ trenutna: '', nova: '', potvrda: '' })
-const lozinkaGreska = ref('')
-const lozinkaUspjeh = ref('')
-const spremaLozinku = ref(false)
-
-const LOZINKA_GRESKE = {
-  'auth/wrong-password':        'Trenutna lozinka nije ispravna.',
-  'auth/invalid-credential':    'Trenutna lozinka nije ispravna.',
-  'auth/too-many-requests':     'Previše pokušaja. Pokušajte kasnije.',
-  'auth/weak-password':         'Nova lozinka je preslaba (min. 6 znakova).',
-  'auth/requires-recent-login': 'Sesija je istekla. Odjavite se i prijavite ponovo.',
-}
-
-async function promijeniLozinku() {
-  lozinkaGreska.value = ''
-  lozinkaUspjeh.value = ''
-  if (!lozinka.value.trenutna || !lozinka.value.nova || !lozinka.value.potvrda) {
-    lozinkaGreska.value = 'Sva polja su obavezna.'
-    return
-  }
-  if (lozinka.value.nova !== lozinka.value.potvrda) {
-    lozinkaGreska.value = 'Nova lozinka i potvrda se ne podudaraju.'
-    return
-  }
-  if (lozinka.value.nova.length < 6) {
-    lozinkaGreska.value = 'Nova lozinka mora imati najmanje 6 znakova.'
-    return
-  }
-  spremaLozinku.value = true
-  try {
-    const user = auth.currentUser
-    const credential = EmailAuthProvider.credential(user.email, lozinka.value.trenutna)
-    await reauthenticateWithCredential(user, credential)
-    await updatePassword(user, lozinka.value.nova)
-    lozinka.value = { trenutna: '', nova: '', potvrda: '' }
-    lozinkaUspjeh.value = 'Lozinka je uspješno promijenjena.'
-  } catch (e) {
-    lozinkaGreska.value = LOZINKA_GRESKE[e.code] ?? 'Greška pri promjeni lozinke.'
-  } finally {
-    spremaLozinku.value = false
-  }
-}
-</script>

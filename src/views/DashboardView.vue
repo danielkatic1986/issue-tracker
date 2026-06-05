@@ -1,3 +1,132 @@
+<script setup>
+// Početna stranica aplikacije — prikazuje statistike svih projekata i problema na jednom mjestu.
+// Svi podaci se dohvaćaju pri učitavanju i agregiraju lokalno (ne postoji serverski endpoint za statistiku).
+
+import { ref, computed, onMounted } from 'vue'
+import { dohvatiSveProjekte } from '@/services/projektService'
+import { dohvatiSveProbleme, STATUSI_PROBLEMA, PRIORITETI } from '@/services/problemService'
+
+// Brojčane statistike koje se prikazuju u karticama i grafikonima
+const projekti          = ref([])
+const sviProblemi       = ref([])
+const ukupnoProblema    = ref(0)
+const ukupnoRjesenja    = ref(0)
+const otvoreniProblemi  = ref(0)
+const uTijekuProblemi   = ref(0)
+const zatvoreniProblemi = ref(0)
+const aktivniProjekti   = ref(0)
+const nizakProblemi     = ref(0)
+const srednjiProblemi   = ref(0)
+const visokiProblemi    = ref(0)
+const kriticniProblemi  = ref(0)
+const nedavniProblemi   = ref([])
+const ucitavanje        = ref(true)
+
+// Tekst za karticu "Riješeno" — prikazuje postotak riješenosti
+const rjesenostLabel = computed(() => {
+  if (!ukupnoProblema.value) return '0% riješenosti'
+  return `${Math.round((ukupnoRjesenja.value / ukupnoProblema.value) * 100)}% riješenosti`
+})
+
+// Podaci za grafikon stanja problema — svaki red ima boju, broj i labelu
+const statusReci = computed(() => [
+  { label: 'Otvoreni',  count: otvoreniProblemi.value,  dot: 'bg-blue-400',  bar: 'bg-blue-400'  },
+  { label: 'U tijeku',  count: uTijekuProblemi.value,   dot: 'bg-amber-400', bar: 'bg-amber-400' },
+  { label: 'Riješeni',  count: ukupnoRjesenja.value,    dot: 'bg-green-400', bar: 'bg-green-400' },
+  { label: 'Zatvoreni', count: zatvoreniProblemi.value,  dot: 'bg-gray-300',  bar: 'bg-gray-300'  },
+])
+
+// Podaci za grafikon prioriteta
+const prioritetReci = computed(() => [
+  { label: 'Nizak',    count: nizakProblemi.value,    dot: 'bg-gray-400',   bar: 'bg-gray-400'   },
+  { label: 'Srednji',  count: srednjiProblemi.value,  dot: 'bg-blue-400',   bar: 'bg-blue-400'   },
+  { label: 'Visok',    count: visokiProblemi.value,   dot: 'bg-orange-400', bar: 'bg-orange-400' },
+  { label: 'Kritičan', count: kriticniProblemi.value, dot: 'bg-red-400',    bar: 'bg-red-400'    },
+])
+
+// Za tablicu projekata na dnu — agregira probleme po projektu iz već učitanih podataka,
+// bez dodatnih poziva prema bazi
+const projektStats = computed(() =>
+  projekti.value.map(p => {
+    const pp      = sviProblemi.value.filter(pr => pr.projektId === p.id)
+    const ukupno  = pp.length
+    const otvoreni = pp.filter(pr => pr.status === STATUSI_PROBLEMA.OTVOREN).length
+    const uTijeku  = pp.filter(pr => pr.status === STATUSI_PROBLEMA.U_TIJEKU).length
+    const rjeseni  = pp.filter(pr => pr.status === STATUSI_PROBLEMA.RIJEŠEN).length
+    const pct      = ukupno ? Math.round((rjeseni / ukupno) * 100) : 0
+    return { ...p, ukupno, otvoreni, uTijeku, rjeseni, pct }
+  })
+)
+
+// Pretvori broj problema u postotak širine za progress bar u grafikonu
+function pct(count) {
+  if (!ukupnoProblema.value) return 0
+  return Math.round((count / ukupnoProblema.value) * 100)
+}
+
+// Boja badge-a za status u panelu nedavnih problema
+function statusBoja(status) {
+  switch (status) {
+    case STATUSI_PROBLEMA.OTVOREN:  return 'bg-blue-100 text-blue-600'
+    case STATUSI_PROBLEMA.U_TIJEKU: return 'bg-amber-100 text-amber-600'
+    case STATUSI_PROBLEMA.RIJEŠEN:  return 'bg-green-100 text-green-600'
+    case STATUSI_PROBLEMA.ZATVOREN: return 'bg-gray-100 text-gray-500'
+    default:                        return 'bg-red-100 text-red-500'
+  }
+}
+
+// Dohvati sve projekte, pa za svaki projekt dohvati sve probleme i agregiraj statistike.
+// Problemi se čuvaju i u sviProblemi kako bi projektStats computed mogao raditi bez novih poziva.
+onMounted(async () => {
+  try {
+    const sviProjekti = await dohvatiSveProjekte()
+    projekti.value        = sviProjekti
+    aktivniProjekti.value = sviProjekti.filter((p) => p.status === 'aktivan').length
+
+    let total = 0, rjeseni = 0, otvoreni = 0, uTijeku = 0, zatvoreni = 0
+    let nizak = 0, srednji = 0, visok = 0, kritican = 0
+    const sakupljeni = []
+
+    for (const projekt of sviProjekti) {
+      const problemi = await dohvatiSveProbleme(projekt.id)
+      for (const pr of problemi) {
+        total++
+        if      (pr.status === STATUSI_PROBLEMA.RIJEŠEN)  rjeseni++
+        else if (pr.status === STATUSI_PROBLEMA.OTVOREN)  otvoreni++
+        else if (pr.status === STATUSI_PROBLEMA.U_TIJEKU) uTijeku++
+        else                                               zatvoreni++
+
+        if      (pr.prioritet === PRIORITETI.NIZAK)   nizak++
+        else if (pr.prioritet === PRIORITETI.SREDNJI)  srednji++
+        else if (pr.prioritet === PRIORITETI.VISOK)    visok++
+        else if (pr.prioritet === PRIORITETI.KRITICAN) kritican++
+
+        // Dodaj naziv projekta uz problem kako bi ga panel "Nedavni problemi" mogao prikazati
+        sakupljeni.push({ ...pr, projektNaziv: projekt.naziv })
+      }
+    }
+
+    sviProblemi.value       = sakupljeni
+    ukupnoProblema.value    = total
+    ukupnoRjesenja.value    = rjeseni
+    otvoreniProblemi.value  = otvoreni
+    uTijekuProblemi.value   = uTijeku
+    zatvoreniProblemi.value = zatvoreni
+    nizakProblemi.value     = nizak
+    srednjiProblemi.value   = srednji
+    visokiProblemi.value    = visok
+    kriticniProblemi.value  = kritican
+
+    // Prikaži samo 6 najnovijih problema, sortirano po datumu prijave
+    nedavniProblemi.value = sakupljeni
+      .sort((a, b) => (b.datumPrijave?.seconds ?? 0) - (a.datumPrijave?.seconds ?? 0))
+      .slice(0, 6)
+  } finally {
+    ucitavanje.value = false
+  }
+})
+</script>
+
 <template>
   <div class="h-full overflow-y-auto">
     <div class="p-6 flex flex-col gap-4">
@@ -146,29 +275,20 @@
               </div>
               <span class="text-sm font-semibold text-gray-700 dark:text-gray-200 text-center">{{ ps.ukupno }}</span>
               <div class="flex justify-center">
-                <span v-if="ps.otvoreni" class="text-xs font-medium bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full">
-                  {{ ps.otvoreni }}
-                </span>
+                <span v-if="ps.otvoreni" class="text-xs font-medium bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full">{{ ps.otvoreni }}</span>
                 <span v-else class="text-xs text-gray-300 dark:text-gray-600">—</span>
               </div>
               <div class="flex justify-center">
-                <span v-if="ps.uTijeku" class="text-xs font-medium bg-amber-100 text-amber-600 px-2 py-0.5 rounded-full">
-                  {{ ps.uTijeku }}
-                </span>
+                <span v-if="ps.uTijeku" class="text-xs font-medium bg-amber-100 text-amber-600 px-2 py-0.5 rounded-full">{{ ps.uTijeku }}</span>
                 <span v-else class="text-xs text-gray-300 dark:text-gray-600">—</span>
               </div>
               <div class="flex justify-center">
-                <span v-if="ps.rjeseni" class="text-xs font-medium bg-green-100 text-green-600 px-2 py-0.5 rounded-full">
-                  {{ ps.rjeseni }}
-                </span>
+                <span v-if="ps.rjeseni" class="text-xs font-medium bg-green-100 text-green-600 px-2 py-0.5 rounded-full">{{ ps.rjeseni }}</span>
                 <span v-else class="text-xs text-gray-300 dark:text-gray-600">—</span>
               </div>
               <div class="flex items-center gap-2">
                 <div class="flex-1 bg-gray-100 dark:bg-gray-600 rounded-full h-1.5">
-                  <div
-                    class="h-1.5 rounded-full bg-green-400 transition-all duration-500"
-                    :style="{ width: ps.pct + '%' }"
-                  />
+                  <div class="h-1.5 rounded-full bg-green-400 transition-all duration-500" :style="{ width: ps.pct + '%' }" />
                 </div>
                 <span class="text-xs text-gray-500 dark:text-gray-400 w-8 text-right shrink-0">{{ ps.pct }}%</span>
               </div>
@@ -180,117 +300,3 @@
     </div>
   </div>
 </template>
-
-<script setup>
-import { ref, computed, onMounted } from 'vue'
-import { dohvatiSveProjekte } from '@/services/projektService'
-import { dohvatiSveProbleme, STATUSI_PROBLEMA, PRIORITETI } from '@/services/problemService'
-
-const projekti          = ref([])
-const sviProblemi       = ref([])
-const ukupnoProblema    = ref(0)
-const ukupnoRjesenja    = ref(0)
-const otvoreniProblemi  = ref(0)
-const uTijekuProblemi   = ref(0)
-const zatvoreniProblemi = ref(0)
-const aktivniProjekti   = ref(0)
-const nizakProblemi     = ref(0)
-const srednjiProblemi   = ref(0)
-const visokiProblemi    = ref(0)
-const kriticniProblemi  = ref(0)
-const nedavniProblemi   = ref([])
-const ucitavanje        = ref(true)
-
-const rjesenostLabel = computed(() => {
-  if (!ukupnoProblema.value) return '0% riješenosti'
-  return `${Math.round((ukupnoRjesenja.value / ukupnoProblema.value) * 100)}% riješenosti`
-})
-
-const statusReci = computed(() => [
-  { label: 'Otvoreni',  count: otvoreniProblemi.value,  dot: 'bg-blue-400',  bar: 'bg-blue-400'  },
-  { label: 'U tijeku',  count: uTijekuProblemi.value,   dot: 'bg-amber-400', bar: 'bg-amber-400' },
-  { label: 'Riješeni',  count: ukupnoRjesenja.value,    dot: 'bg-green-400', bar: 'bg-green-400' },
-  { label: 'Zatvoreni', count: zatvoreniProblemi.value,  dot: 'bg-gray-300',  bar: 'bg-gray-300'  },
-])
-
-const prioritetReci = computed(() => [
-  { label: 'Nizak',    count: nizakProblemi.value,    dot: 'bg-gray-400',   bar: 'bg-gray-400'   },
-  { label: 'Srednji',  count: srednjiProblemi.value,  dot: 'bg-blue-400',   bar: 'bg-blue-400'   },
-  { label: 'Visok',    count: visokiProblemi.value,   dot: 'bg-orange-400', bar: 'bg-orange-400' },
-  { label: 'Kritičan', count: kriticniProblemi.value, dot: 'bg-red-400',    bar: 'bg-red-400'    },
-])
-
-const projektStats = computed(() =>
-  projekti.value.map(p => {
-    const pp = sviProblemi.value.filter(pr => pr.projektId === p.id)
-    const ukupno  = pp.length
-    const otvoreni = pp.filter(pr => pr.status === STATUSI_PROBLEMA.OTVOREN).length
-    const uTijeku  = pp.filter(pr => pr.status === STATUSI_PROBLEMA.U_TIJEKU).length
-    const rjeseni  = pp.filter(pr => pr.status === STATUSI_PROBLEMA.RIJEŠEN).length
-    const pct      = ukupno ? Math.round((rjeseni / ukupno) * 100) : 0
-    return { ...p, ukupno, otvoreni, uTijeku, rjeseni, pct }
-  })
-)
-
-function pct(count) {
-  if (!ukupnoProblema.value) return 0
-  return Math.round((count / ukupnoProblema.value) * 100)
-}
-
-function statusBoja(status) {
-  switch (status) {
-    case STATUSI_PROBLEMA.OTVOREN:  return 'bg-blue-100 text-blue-600'
-    case STATUSI_PROBLEMA.U_TIJEKU: return 'bg-amber-100 text-amber-600'
-    case STATUSI_PROBLEMA.RIJEŠEN:  return 'bg-green-100 text-green-600'
-    case STATUSI_PROBLEMA.ZATVOREN: return 'bg-gray-100 text-gray-500'
-    default:                        return 'bg-red-100 text-red-500'
-  }
-}
-
-onMounted(async () => {
-  try {
-    const sviProjekti = await dohvatiSveProjekte()
-    projekti.value = sviProjekti
-    aktivniProjekti.value = sviProjekti.filter((p) => p.status === 'aktivan').length
-
-    let total = 0, rjeseni = 0, otvoreni = 0, uTijeku = 0, zatvoreni = 0
-    let nizak = 0, srednji = 0, visok = 0, kritican = 0
-    const sakupljeni = []
-
-    for (const projekt of sviProjekti) {
-      const problemi = await dohvatiSveProbleme(projekt.id)
-      for (const pr of problemi) {
-        total++
-        if      (pr.status === STATUSI_PROBLEMA.RIJEŠEN)  rjeseni++
-        else if (pr.status === STATUSI_PROBLEMA.OTVOREN)  otvoreni++
-        else if (pr.status === STATUSI_PROBLEMA.U_TIJEKU) uTijeku++
-        else                                               zatvoreni++
-
-        if      (pr.prioritet === PRIORITETI.NIZAK)    nizak++
-        else if (pr.prioritet === PRIORITETI.SREDNJI)   srednji++
-        else if (pr.prioritet === PRIORITETI.VISOK)     visok++
-        else if (pr.prioritet === PRIORITETI.KRITICAN)  kritican++
-
-        sakupljeni.push({ ...pr, projektNaziv: projekt.naziv })
-      }
-    }
-
-    sviProblemi.value       = sakupljeni
-    ukupnoProblema.value    = total
-    ukupnoRjesenja.value    = rjeseni
-    otvoreniProblemi.value  = otvoreni
-    uTijekuProblemi.value   = uTijeku
-    zatvoreniProblemi.value = zatvoreni
-    nizakProblemi.value     = nizak
-    srednjiProblemi.value   = srednji
-    visokiProblemi.value    = visok
-    kriticniProblemi.value  = kritican
-
-    nedavniProblemi.value = sakupljeni
-      .sort((a, b) => (b.datumPrijave?.seconds ?? 0) - (a.datumPrijave?.seconds ?? 0))
-      .slice(0, 6)
-  } finally {
-    ucitavanje.value = false
-  }
-})
-</script>

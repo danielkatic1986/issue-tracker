@@ -1,3 +1,170 @@
+<script setup>
+// Admin stranica za upravljanje korisnicima.
+// Prikazuje tablicu svih korisnika i omogućuje promjenu uloga, statusa i kreiranje novih.
+
+import { ref, onMounted } from 'vue'
+import { initializeApp, deleteApp } from 'firebase/app'
+import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth'
+import { useAuthStore } from '@/stores/authStore'
+import { firebaseConfig } from '@/firebase'
+import { dohvatiSveKorisnike, azurirajKorisnika, kreirajKorisnika, normalizirajUloge } from '@/services/korisnikService'
+
+const authStore  = useAuthStore()
+const korisnici  = ref([])
+const ucitavanje = ref(true)
+
+// Definicija svih uloga s bojama za prikaz u tablici i modalu
+const SVE_ULOGE = [
+  { value: 'administrator', label: 'Admin',     aktivnaKlasa: 'bg-violet-100 border-violet-200 text-violet-700', modalKlasa: 'bg-violet-50 border-violet-300 text-violet-700' },
+  { value: 'developer',     label: 'Developer', aktivnaKlasa: 'bg-blue-100 border-blue-200 text-blue-700',       modalKlasa: 'bg-blue-50 border-blue-300 text-blue-700'       },
+  { value: 'tester',        label: 'Tester',    aktivnaKlasa: 'bg-green-100 border-green-200 text-green-700',    modalKlasa: 'bg-green-50 border-green-300 text-green-700'    },
+]
+
+// Vrati normalizirani niz uloga za korisnika (rješava stari/novi format iz baze)
+function ulogeZa(k) {
+  return normalizirajUloge(k)
+}
+
+// Generiraj inicijale za avatar ako korisnik nema profilnu sliku
+function inicijaliZa(k) {
+  return ((k.ime?.charAt(0) ?? '') + (k.prezime?.charAt(0) ?? '')).toUpperCase() || '?'
+}
+
+function formatDatum(ts) {
+  if (!ts) return '—'
+  const d = ts.toDate ? ts.toDate() : new Date(ts)
+  if (isNaN(d.getTime())) return '—'
+  return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}.`
+}
+
+// Dodaj ili ukloni ulogu klikom na badge u tablici.
+// Ne dopušta uklanjanje jedine preostale uloge jer korisnik mora imati barem jednu.
+async function toggleUloga(korisnik, uloga) {
+  const trenutne = ulogeZa(korisnik)
+  let nove
+  if (trenutne.includes(uloga)) {
+    if (trenutne.length === 1) return
+    nove = trenutne.filter(u => u !== uloga)
+  } else {
+    nove = [...trenutne, uloga]
+  }
+  korisnik.sprema = true
+  try {
+    await azurirajKorisnika(korisnik.id, { uloge: nove })
+    korisnik.uloge = nove
+    delete korisnik.uloga
+  } finally {
+    korisnik.sprema = false
+  }
+}
+
+// Prebaci status korisnika između aktivan/neaktivan
+async function promijeniStatus(korisnik) {
+  korisnik.sprema = true
+  try {
+    const noviStatus = !korisnik.aktivan
+    await azurirajKorisnika(korisnik.id, { aktivan: noviStatus })
+    korisnik.aktivan = noviStatus
+  } finally {
+    korisnik.sprema = false
+  }
+}
+
+const prikazDodaj = ref(false)
+const dodavanje   = ref(false)
+const formaGreska = ref('')
+const forma = ref(praznaForma())
+
+function praznaForma() {
+  return { ime: '', prezime: '', email: '', lozinka: '', uloge: ['developer'] }
+}
+
+function zatvoriModal() {
+  prikazDodaj.value = false
+  formaGreska.value = ''
+  forma.value = praznaForma()
+}
+
+// Poruke za Firebase greške pri kreiranju korisnika
+const AUTH_GRESKE = {
+  'auth/email-already-in-use': 'Korisnik s tim e-mailom već postoji.',
+  'auth/invalid-email':        'Nevažeća e-mail adresa.',
+  'auth/weak-password':        'Lozinka je preslaba (min. 6 znakova).',
+}
+
+// Kreira novog korisnika koristeći privremenu Firebase instancu.
+// Razlog: createUserWithEmailAndPassword bi automatski prijavio novog korisnika
+// i odjavilo admina. Privremena instanca to sprječava — admin ostaje prijavljen.
+async function dodajKorisnika() {
+  formaGreska.value = ''
+
+  if (!forma.value.ime.trim() || !forma.value.prezime.trim() || !forma.value.email.trim() || !forma.value.lozinka) {
+    formaGreska.value = 'Sva polja su obavezna.'
+    return
+  }
+  if (forma.value.lozinka.length < 6) {
+    formaGreska.value = 'Lozinka mora imati najmanje 6 znakova.'
+    return
+  }
+  if (forma.value.uloge.length === 0) {
+    formaGreska.value = 'Odaberite barem jednu ulogu.'
+    return
+  }
+
+  dodavanje.value = true
+  let tmpApp = null
+  try {
+    tmpApp = initializeApp(firebaseConfig, `new-user-${Date.now()}`)
+    const tmpAuth = getAuth(tmpApp)
+
+    const result = await createUserWithEmailAndPassword(tmpAuth, forma.value.email.trim(), forma.value.lozinka)
+    const uid = result.user.uid
+
+    await kreirajKorisnika(uid, {
+      ime:     forma.value.ime.trim(),
+      prezime: forma.value.prezime.trim(),
+      email:   forma.value.email.trim(),
+      uloge:   forma.value.uloge,
+    })
+
+    // Dodaj korisnika lokalno bez ponovnog dohvata iz baze
+    korisnici.value.push({
+      id:             uid,
+      ime:            forma.value.ime.trim(),
+      prezime:        forma.value.prezime.trim(),
+      email:          forma.value.email.trim(),
+      uloge:          forma.value.uloge,
+      aktivan:        true,
+      datumStvaranja: null,
+      sprema:         false,
+    })
+
+    zatvoriModal()
+  } catch (e) {
+    formaGreska.value = AUTH_GRESKE[e.code] ?? 'Greška pri kreiranju korisnika.'
+  } finally {
+    if (tmpApp) await deleteApp(tmpApp) // obriši privremenu Firebase instancu
+    dodavanje.value = false
+  }
+}
+
+onMounted(async () => {
+  try {
+    const svi = await dohvatiSveKorisnike()
+    // Sortiraj: trenutno prijavljeni korisnik ide na vrh, ostali abecedno
+    korisnici.value = svi
+      .map((k) => ({ ...k, sprema: false }))
+      .sort((a, b) => {
+        if (a.id === authStore.user?.uid) return -1
+        if (b.id === authStore.user?.uid) return 1
+        return a.ime.localeCompare(b.ime, 'hr')
+      })
+  } finally {
+    ucitavanje.value = false
+  }
+})
+</script>
+
 <template>
   <div class="p-6 flex flex-col gap-4">
 
@@ -182,155 +349,3 @@
 
   </div>
 </template>
-
-<script setup>
-import { ref, onMounted } from 'vue'
-import { initializeApp, deleteApp } from 'firebase/app'
-import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth'
-import { useAuthStore } from '@/stores/authStore'
-import { firebaseConfig } from '@/firebase'
-import { dohvatiSveKorisnike, azurirajKorisnika, kreirajKorisnika, normalizirajUloge } from '@/services/korisnikService'
-
-const authStore  = useAuthStore()
-const korisnici  = ref([])
-const ucitavanje = ref(true)
-
-const SVE_ULOGE = [
-  { value: 'administrator', label: 'Admin',     aktivnaKlasa: 'bg-violet-100 border-violet-200 text-violet-700', modalKlasa: 'bg-violet-50 border-violet-300 text-violet-700' },
-  { value: 'developer',     label: 'Developer', aktivnaKlasa: 'bg-blue-100 border-blue-200 text-blue-700',       modalKlasa: 'bg-blue-50 border-blue-300 text-blue-700'       },
-  { value: 'tester',        label: 'Tester',    aktivnaKlasa: 'bg-green-100 border-green-200 text-green-700',    modalKlasa: 'bg-green-50 border-green-300 text-green-700'    },
-]
-
-function ulogeZa(k) {
-  return normalizirajUloge(k)
-}
-
-function inicijaliZa(k) {
-  return ((k.ime?.charAt(0) ?? '') + (k.prezime?.charAt(0) ?? '')).toUpperCase() || '?'
-}
-
-function formatDatum(ts) {
-  if (!ts) return '—'
-  const d = ts.toDate ? ts.toDate() : new Date(ts)
-  if (isNaN(d.getTime())) return '—'
-  return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}.`
-}
-
-async function toggleUloga(korisnik, uloga) {
-  const trenutne = ulogeZa(korisnik)
-  let nove
-  if (trenutne.includes(uloga)) {
-    if (trenutne.length === 1) return
-    nove = trenutne.filter(u => u !== uloga)
-  } else {
-    nove = [...trenutne, uloga]
-  }
-  korisnik.sprema = true
-  try {
-    await azurirajKorisnika(korisnik.id, { uloge: nove })
-    korisnik.uloge = nove
-    delete korisnik.uloga
-  } finally {
-    korisnik.sprema = false
-  }
-}
-
-async function promijeniStatus(korisnik) {
-  korisnik.sprema = true
-  try {
-    const noviStatus = !korisnik.aktivan
-    await azurirajKorisnika(korisnik.id, { aktivan: noviStatus })
-    korisnik.aktivan = noviStatus
-  } finally {
-    korisnik.sprema = false
-  }
-}
-
-const prikazDodaj = ref(false)
-const dodavanje   = ref(false)
-const formaGreska = ref('')
-const forma = ref(praznaForma())
-
-function praznaForma() {
-  return { ime: '', prezime: '', email: '', lozinka: '', uloge: ['developer'] }
-}
-
-function zatvoriModal() {
-  prikazDodaj.value = false
-  formaGreska.value = ''
-  forma.value = praznaForma()
-}
-
-const AUTH_GRESKE = {
-  'auth/email-already-in-use': 'Korisnik s tim e-mailom već postoji.',
-  'auth/invalid-email':        'Nevažeća e-mail adresa.',
-  'auth/weak-password':        'Lozinka je preslaba (min. 6 znakova).',
-}
-
-async function dodajKorisnika() {
-  formaGreska.value = ''
-
-  if (!forma.value.ime.trim() || !forma.value.prezime.trim() || !forma.value.email.trim() || !forma.value.lozinka) {
-    formaGreska.value = 'Sva polja su obavezna.'
-    return
-  }
-  if (forma.value.lozinka.length < 6) {
-    formaGreska.value = 'Lozinka mora imati najmanje 6 znakova.'
-    return
-  }
-  if (forma.value.uloge.length === 0) {
-    formaGreska.value = 'Odaberite barem jednu ulogu.'
-    return
-  }
-
-  dodavanje.value = true
-  let tmpApp = null
-  try {
-    tmpApp = initializeApp(firebaseConfig, `new-user-${Date.now()}`)
-    const tmpAuth = getAuth(tmpApp)
-
-    const result = await createUserWithEmailAndPassword(tmpAuth, forma.value.email.trim(), forma.value.lozinka)
-    const uid = result.user.uid
-
-    await kreirajKorisnika(uid, {
-      ime:     forma.value.ime.trim(),
-      prezime: forma.value.prezime.trim(),
-      email:   forma.value.email.trim(),
-      uloge:   forma.value.uloge,
-    })
-
-    korisnici.value.push({
-      id:             uid,
-      ime:            forma.value.ime.trim(),
-      prezime:        forma.value.prezime.trim(),
-      email:          forma.value.email.trim(),
-      uloge:          forma.value.uloge,
-      aktivan:        true,
-      datumStvaranja: null,
-      sprema:         false,
-    })
-
-    zatvoriModal()
-  } catch (e) {
-    formaGreska.value = AUTH_GRESKE[e.code] ?? 'Greška pri kreiranju korisnika.'
-  } finally {
-    if (tmpApp) await deleteApp(tmpApp)
-    dodavanje.value = false
-  }
-}
-
-onMounted(async () => {
-  try {
-    const svi = await dohvatiSveKorisnike()
-    korisnici.value = svi
-      .map((k) => ({ ...k, sprema: false }))
-      .sort((a, b) => {
-        if (a.id === authStore.user?.uid) return -1
-        if (b.id === authStore.user?.uid) return 1
-        return a.ime.localeCompare(b.ime, 'hr')
-      })
-  } finally {
-    ucitavanje.value = false
-  }
-})
-</script>

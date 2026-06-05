@@ -1,3 +1,373 @@
+<script setup>
+// Detalji jednog problema: komentari, privitci i dodijeljeni članovi.
+// Privitci nisu zasebni dokumenti — to su komentari koji imaju priloženu datoteku,
+// pa se isti podaci prikazuju i u panelu komentara i u panelu privitaka.
+
+import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { useRoute } from 'vue-router'
+import { useAuthStore } from '@/stores/authStore'
+import { useProjektiStore } from '@/stores/projektiStore'
+import { dohvatiProblem, azurirajProblem } from '@/services/problemService'
+import { dodajKomentar, dohvatiKomentare, obrisiKomentar } from '@/services/komentarService'
+import { dohvatiKorisnika, dohvatiSveKorisnike, normalizirajUloge } from '@/services/korisnikService'
+
+const route       = useRoute()
+const authStore   = useAuthStore()
+const projektiStore = useProjektiStore()
+
+const projektId = route.params.projektId
+const problemId = route.params.problemId
+
+const problem              = ref(null)
+const komentari            = ref([])
+const korisnici            = ref({})   // cache uid → profil, popunjava se lazy
+const sviKorisnici         = ref([])
+const ucitavanjeKomentara  = ref(true)
+
+const sortirKomentare      = ref('najnovije')
+const pretragaKomentara    = ref('')
+const pretragaPrivitaka    = ref('')
+const otvoreniKomentarMeni = ref(null)
+
+const prikazNoviKomentar   = ref(false)
+const noviKomentarTekst    = ref('')
+const novaKomentarDatoteka = ref(null)
+const komentarGreska       = ref('')
+const spremanjeKomentara   = ref(false)
+
+const trenutniStatus    = ref('')
+const trenutniPrioritet = ref('')
+
+const otvoreniClanMeni      = ref(null)
+const dodajClanaMeniOtvoren = ref(false)
+
+const fileInput     = ref(null)
+const uploadLoading = ref(false)
+const uploadGreska  = ref('')
+
+// Drag za vertikalno mijenjanje visine panela komentara (samo desktop)
+const containerRef  = ref(null)
+const commentHeight = ref(280)
+const windowWidth   = ref(window.innerWidth)
+const isMobile      = computed(() => windowWidth.value < 768)
+let dragStartY = 0, dragStartH = 0
+
+function onWindowResize() { windowWidth.value = window.innerWidth }
+
+function startDrag(e) {
+  dragStartY = e.clientY
+  dragStartH = commentHeight.value
+  document.body.style.cursor = 'row-resize'
+  document.body.style.userSelect = 'none'
+  document.addEventListener('mousemove', onDrag)
+  document.addEventListener('mouseup', stopDrag)
+  e.preventDefault()
+}
+function onDrag(e) {
+  if (!containerRef.value) return
+  const total = containerRef.value.getBoundingClientRect().height
+  commentHeight.value = Math.max(80, Math.min(total - 80, dragStartH + (e.clientY - dragStartY)))
+}
+function stopDrag() {
+  document.body.style.cursor = ''
+  document.body.style.userSelect = ''
+  document.removeEventListener('mousemove', onDrag)
+  document.removeEventListener('mouseup', stopDrag)
+}
+
+// Drag za horizontalno mijenjanje širine panela privitaka (samo desktop)
+const bottomRef       = ref(null)
+const privitciPercent = ref(50)
+let hDragStartX = 0, hDragStartPct = 0
+
+function startHDrag(e) {
+  hDragStartX   = e.clientX
+  hDragStartPct = privitciPercent.value
+  document.body.style.cursor = 'col-resize'
+  document.body.style.userSelect = 'none'
+  document.addEventListener('mousemove', onHDrag)
+  document.addEventListener('mouseup', stopHDrag)
+  e.preventDefault()
+}
+function onHDrag(e) {
+  if (!bottomRef.value) return
+  const total = bottomRef.value.getBoundingClientRect().width
+  const delta = ((e.clientX - hDragStartX) / total) * 100
+  privitciPercent.value = Math.max(20, Math.min(80, hDragStartPct + delta))
+}
+function stopHDrag() {
+  document.body.style.cursor = ''
+  document.body.style.userSelect = ''
+  document.removeEventListener('mousemove', onHDrag)
+  document.removeEventListener('mouseup', stopHDrag)
+}
+
+// Lista članova izgrađena iz polja na dokumentu problema.
+// administratorUid je "stalan" — prijavljivač/vlasnik koji se ne može ukloniti.
+const clanovi = computed(() => {
+  if (!problem.value) return []
+  const lista = []
+  if (problem.value.administratorUid) {
+    lista.push({ uid: problem.value.administratorUid, datum: problem.value.datumPrijave, stalan: true })
+  }
+  if (problem.value.testerUid) {
+    lista.push({ uid: problem.value.testerUid, datum: problem.value.datumPrijave })
+  }
+  if (problem.value.developerUid) {
+    lista.push({ uid: problem.value.developerUid, datum: problem.value.developerDodanDatum ?? problem.value.datumPrijave })
+  }
+  return lista
+})
+
+const filtriranihKomentara = computed(() => {
+  let lista = [...komentari.value]
+  if (pretragaKomentara.value.trim()) {
+    const q = pretragaKomentara.value.toLowerCase()
+    lista = lista.filter(k => (k.tekst ?? '').toLowerCase().includes(q))
+  }
+  if (sortirKomentare.value === 'najnovije') {
+    lista.sort((a, b) => (b.datumVrijeme?.seconds ?? 0) - (a.datumVrijeme?.seconds ?? 0))
+  } else {
+    lista.sort((a, b) => (a.datumVrijeme?.seconds ?? 0) - (b.datumVrijeme?.seconds ?? 0))
+  }
+  return lista
+})
+
+// Privitci su podskup komentara — oni koji imaju priloženu datoteku
+const filtriranihPrivitaka = computed(() => {
+  let lista = komentari.value.filter(k => k.privitak && k.privitakNaziv)
+  if (pretragaPrivitaka.value.trim()) {
+    const q = pretragaPrivitaka.value.toLowerCase()
+    lista = lista.filter(k => (k.privitakNaziv ?? '').toLowerCase().includes(q))
+  }
+  return lista
+})
+
+// Korisnici se dohvaćaju po UID-u i keširaju lokalno — isti objekt koriste komentari i panel članova
+function korisnikNaziv(uid) {
+  if (!uid) return '—'
+  const k = korisnici.value[uid]
+  if (!k) return uid
+  return `${k.ime} ${k.prezime}`
+}
+
+function formatUloga(profil) {
+  const NAZIVI = { administrator: 'Administrator', developer: 'Developer', tester: 'Tester' }
+  return normalizirajUloge(profil).map(u => NAZIVI[u] ?? u).join(', ')
+}
+
+function formatDatum(ts) {
+  if (!ts) return '—'
+  const d = ts.toDate ? ts.toDate() : new Date(ts)
+  if (isNaN(d.getTime())) return '—'
+  return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}.`
+}
+
+function formatDatumVrijeme(ts) {
+  if (!ts) return '—'
+  const d = ts.toDate ? ts.toDate() : new Date(ts)
+  if (isNaN(d.getTime())) return '—'
+  const datum   = `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}.`
+  const vrijeme = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  return `${datum} ${vrijeme}`
+}
+
+function toggleKomentarMeni(id) {
+  otvoreniKomentarMeni.value = otvoreniKomentarMeni.value === id ? null : id
+}
+
+function toggleClanMeni(uid) {
+  otvoreniClanMeni.value = otvoreniClanMeni.value === uid ? null : uid
+}
+
+function toggleDodajClanaMeni() {
+  dodajClanaMeniOtvoren.value = !dodajClanaMeniOtvoren.value
+  if (dodajClanaMeniOtvoren.value && sviKorisnici.value.length === 0) {
+    ucitajSveKorisnike()
+  }
+}
+
+function zatvoriSveMeniji() {
+  otvoreniKomentarMeni.value = null
+  otvoreniClanMeni.value = null
+  dodajClanaMeniOtvoren.value = false
+}
+
+// Administrator može brisati tuđe komentare; ostali samo svoje
+function mozeBrisatiKomentar(k) {
+  return authStore.jeAdministrator || k.korisnikUid === authStore.user?.uid
+}
+
+async function ucitajKorisnike(uids) {
+  const nepoznati = uids.filter(uid => uid && !korisnici.value[uid])
+  if (nepoznati.length === 0) return
+  const rezultati = await Promise.all(nepoznati.map(uid => dohvatiKorisnika(uid)))
+  rezultati.forEach((k, i) => {
+    if (k) korisnici.value[nepoznati[i]] = k
+  })
+}
+
+async function ucitajSveKorisnike() {
+  sviKorisnici.value = await dohvatiSveKorisnike()
+}
+
+async function ucitajProblem() {
+  problem.value = await dohvatiProblem(projektId, problemId)
+  if (problem.value) {
+    trenutniStatus.value    = problem.value.status
+    trenutniPrioritet.value = problem.value.prioritet
+    const uids = [problem.value.testerUid, problem.value.developerUid, problem.value.administratorUid].filter(Boolean)
+    await ucitajKorisnike(uids)
+  }
+}
+
+async function ucitajKomentare() {
+  ucitavanjeKomentara.value = true
+  try {
+    komentari.value = await dohvatiKomentare(projektId, problemId)
+    const uids = [...new Set(komentari.value.map(k => k.korisnikUid).filter(Boolean))]
+    await ucitajKorisnike(uids)
+  } finally {
+    ucitavanjeKomentara.value = false
+  }
+}
+
+function zatvoriKomentarModal() {
+  prikazNoviKomentar.value = false
+  noviKomentarTekst.value  = ''
+  novaKomentarDatoteka.value = null
+  komentarGreska.value = ''
+}
+
+function onKomentarDatoteka(e) {
+  novaKomentarDatoteka.value = e.target.files?.[0] ?? null
+}
+
+async function spremiKomentar() {
+  if (!noviKomentarTekst.value.trim()) {
+    komentarGreska.value = 'Tekst komentara je obavezan.'
+    return
+  }
+  spremanjeKomentara.value = true
+  komentarGreska.value = ''
+  try {
+    await dodajKomentar(projektId, problemId, {
+      tekst:      noviKomentarTekst.value.trim(),
+      korisnikUid: authStore.user.uid,
+      datoteka:   novaKomentarDatoteka.value
+    })
+    // Prazan azuriranje triggera zadnjaMijenjanja na problemu
+    await azurirajProblem(projektId, problemId, {})
+    zatvoriKomentarModal()
+    await ucitajKomentare()
+    problem.value = await dohvatiProblem(projektId, problemId)
+  } catch (e) {
+    komentarGreska.value = storageGreskaPoruka(e)
+  } finally {
+    spremanjeKomentara.value = false
+  }
+}
+
+async function potvrdiIzbrisKomentara(komentarId) {
+  otvoreniKomentarMeni.value = null
+  if (!confirm('Obrisati komentar?')) return
+  await obrisiKomentar(projektId, problemId, komentarId)
+  await ucitajKomentare()
+}
+
+// Upload iz panela privitaka — kreira komentar čiji je tekst ime datoteke, privitak je sama datoteka
+async function uploadPrivitak(e) {
+  const datoteka = e.target.files?.[0]
+  if (!datoteka) return
+  uploadLoading.value = true
+  uploadGreska.value  = ''
+  try {
+    await dodajKomentar(projektId, problemId, {
+      tekst:      datoteka.name,
+      korisnikUid: authStore.user.uid,
+      datoteka
+    })
+    await azurirajProblem(projektId, problemId, {})
+    await ucitajKomentare()
+    problem.value = await dohvatiProblem(projektId, problemId)
+  } catch (e) {
+    uploadGreska.value = storageGreskaPoruka(e)
+  } finally {
+    uploadLoading.value = false
+    if (fileInput.value) fileInput.value.value = ''
+  }
+}
+
+function storageGreskaPoruka(e) {
+  return e?.message || 'Greška pri uploadu datoteke.'
+}
+
+// Status i prioritet mijenjaju se inline iz footera — <select> direktno šalje promjenu u Firestore
+async function promijeniStatus() {
+  if (!problem.value || trenutniStatus.value === problem.value.status) return
+  await azurirajProblem(projektId, problemId, { status: trenutniStatus.value })
+  problem.value = { ...problem.value, status: trenutniStatus.value }
+}
+
+async function promijeniPrioritet() {
+  if (!problem.value || trenutniPrioritet.value === problem.value.prioritet) return
+  await azurirajProblem(projektId, problemId, { prioritet: trenutniPrioritet.value })
+  problem.value = { ...problem.value, prioritet: trenutniPrioritet.value }
+}
+
+async function dodajClana(korisnik) {
+  dodajClanaMeniOtvoren.value = false
+  if (!problem.value) return
+  const podaci = {}
+  const uloge = normalizirajUloge(korisnik)
+  if (uloge.includes('developer')) {
+    podaci.developerUid        = korisnik.id
+    podaci.developerDodanDatum = new Date().toISOString()
+  } else if (uloge.includes('tester')) {
+    podaci.testerUid = korisnik.id
+  } else {
+    podaci.administratorUid = korisnik.id
+  }
+  await azurirajProblem(projektId, problemId, podaci)
+  await ucitajProblem()
+}
+
+async function ukloniClana(clan) {
+  otvoreniClanMeni.value = null
+  if (!problem.value) return
+  const podaci = {}
+  if (clan.uid === problem.value.developerUid) {
+    podaci.developerUid        = null
+    podaci.developerDodanDatum = null
+  } else if (clan.uid === problem.value.testerUid) {
+    podaci.testerUid = null
+  }
+  await azurirajProblem(projektId, problemId, podaci)
+  await ucitajProblem()
+}
+
+onMounted(async () => {
+  await projektiStore.postaviAktivniProjekt(projektId)
+  await ucitajProblem()
+  await ucitajKomentare()
+  document.addEventListener('click', zatvoriSveMeniji)
+  window.addEventListener('resize', onWindowResize)
+  await nextTick()
+  if (containerRef.value && !isMobile.value) {
+    commentHeight.value = Math.round(containerRef.value.getBoundingClientRect().height * 0.55)
+  }
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('click', zatvoriSveMeniji)
+  document.removeEventListener('mousemove', onDrag)
+  document.removeEventListener('mouseup', stopDrag)
+  document.removeEventListener('mousemove', onHDrag)
+  document.removeEventListener('mouseup', stopHDrag)
+  window.removeEventListener('resize', onWindowResize)
+})
+</script>
+
 <template>
   <div class="flex flex-col gap-4 p-3 md:p-6 min-h-full md:h-full md:overflow-hidden md:gap-0">
 
@@ -107,8 +477,8 @@
           <p class="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">{{ k.tekst }}</p>
 
           <a
-            v-if="k.privitak && k.privitekUrl"
-            :href="k.privitekUrl"
+            v-if="k.privitak && k.privitakUrl"
+            :href="k.privitakUrl"
             target="_blank"
             rel="noopener"
             class="mt-2 inline-flex items-center gap-1.5 px-2 py-1 bg-gray-50 dark:bg-gray-600 rounded-lg border border-gray-200 dark:border-gray-500 hover:bg-gray-100 dark:hover:bg-gray-500 transition-colors"
@@ -117,7 +487,7 @@
             <svg class="w-3.5 h-3.5 text-gray-400 dark:text-gray-400 shrink-0" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13"/>
             </svg>
-            <span class="text-xs text-gray-600 dark:text-gray-300 max-w-48 truncate">{{ k.privitekNaziv }}</span>
+            <span class="text-xs text-gray-600 dark:text-gray-300 max-w-48 truncate">{{ k.privitakNaziv }}</span>
           </a>
         </div>
       </div>
@@ -172,7 +542,7 @@
           <a
             v-for="p in filtriranihPrivitaka"
             :key="p.id"
-            :href="p.privitekUrl"
+            :href="p.privitakUrl"
             target="_blank"
             rel="noopener"
             class="flex items-center gap-3 py-2 px-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
@@ -183,7 +553,7 @@
               </svg>
             </div>
             <div class="flex-1 min-w-0">
-              <p class="text-sm font-medium text-gray-700 dark:text-gray-200 truncate">{{ p.privitekNaziv }}</p>
+              <p class="text-sm font-medium text-gray-700 dark:text-gray-200 truncate">{{ p.privitakNaziv }}</p>
               <p class="text-xs text-gray-400 dark:text-gray-500">{{ formatDatumVrijeme(p.datumVrijeme) }}</p>
             </div>
           </a>
@@ -354,359 +724,3 @@
 
   </div>
 </template>
-
-<script setup>
-import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
-import { useRoute } from 'vue-router'
-import { useAuthStore } from '@/stores/authStore'
-import { useProjektiStore } from '@/stores/projektiStore'
-import { dohvatiProblem, azurirajProblem } from '@/services/problemService'
-import { dodajKomentar, dohvatiKomentare, obrisiKomentar } from '@/services/komentarService'
-import { dohvatiKorisnika, dohvatiSveKorisnike, normalizirajUloge } from '@/services/korisnikService'
-
-const route      = useRoute()
-const authStore  = useAuthStore()
-const projektiStore = useProjektiStore()
-
-const projektId  = route.params.projektId
-const problemId  = route.params.problemId
-
-const problem            = ref(null)
-const komentari          = ref([])
-const korisnici          = ref({})
-const sviKorisnici       = ref([])
-const ucitavanjeKomentara = ref(true)
-
-const sortirKomentare    = ref('najnovije')
-const pretragaKomentara  = ref('')
-const pretragaPrivitaka  = ref('')
-const otvoreniKomentarMeni = ref(null)
-
-const prikazNoviKomentar = ref(false)
-const noviKomentarTekst  = ref('')
-const novaKomentarDatoteka = ref(null)
-const komentarGreska     = ref('')
-const spremanjeKomentara = ref(false)
-
-const trenutniStatus     = ref('')
-const trenutniPrioritet  = ref('')
-
-const otvoreniClanMeni    = ref(null)
-const dodajClanaMeniOtvoren = ref(false)
-
-const fileInput = ref(null)
-const uploadLoading = ref(false)
-const uploadGreska  = ref('')
-
-const containerRef  = ref(null)
-const commentHeight = ref(280)
-const windowWidth   = ref(window.innerWidth)
-const isMobile      = computed(() => windowWidth.value < 768)
-let dragStartY = 0, dragStartH = 0
-
-function onWindowResize() { windowWidth.value = window.innerWidth }
-
-function startDrag(e) {
-  dragStartY = e.clientY
-  dragStartH = commentHeight.value
-  document.body.style.cursor = 'row-resize'
-  document.body.style.userSelect = 'none'
-  document.addEventListener('mousemove', onDrag)
-  document.addEventListener('mouseup', stopDrag)
-  e.preventDefault()
-}
-function onDrag(e) {
-  if (!containerRef.value) return
-  const total = containerRef.value.getBoundingClientRect().height
-  commentHeight.value = Math.max(80, Math.min(total - 80, dragStartH + (e.clientY - dragStartY)))
-}
-function stopDrag() {
-  document.body.style.cursor = ''
-  document.body.style.userSelect = ''
-  document.removeEventListener('mousemove', onDrag)
-  document.removeEventListener('mouseup', stopDrag)
-}
-
-const bottomRef      = ref(null)
-const privitciPercent = ref(50)
-let hDragStartX = 0, hDragStartPct = 0
-
-function startHDrag(e) {
-  hDragStartX   = e.clientX
-  hDragStartPct = privitciPercent.value
-  document.body.style.cursor = 'col-resize'
-  document.body.style.userSelect = 'none'
-  document.addEventListener('mousemove', onHDrag)
-  document.addEventListener('mouseup', stopHDrag)
-  e.preventDefault()
-}
-function onHDrag(e) {
-  if (!bottomRef.value) return
-  const total = bottomRef.value.getBoundingClientRect().width
-  const delta = ((e.clientX - hDragStartX) / total) * 100
-  privitciPercent.value = Math.max(20, Math.min(80, hDragStartPct + delta))
-}
-function stopHDrag() {
-  document.body.style.cursor = ''
-  document.body.style.userSelect = ''
-  document.removeEventListener('mousemove', onHDrag)
-  document.removeEventListener('mouseup', stopHDrag)
-}
-
-const clanovi = computed(() => {
-  if (!problem.value) return []
-  const lista = []
-  if (problem.value.administratorUid) {
-    lista.push({ uid: problem.value.administratorUid, datum: problem.value.datumPrijave, stalan: true })
-  }
-  if (problem.value.testerUid) {
-    lista.push({ uid: problem.value.testerUid, datum: problem.value.datumPrijave })
-  }
-  if (problem.value.developerUid) {
-    lista.push({ uid: problem.value.developerUid, datum: problem.value.developerDodanDatum ?? problem.value.datumPrijave })
-  }
-  return lista
-})
-
-const filtriranihKomentara = computed(() => {
-  let lista = [...komentari.value]
-  if (pretragaKomentara.value.trim()) {
-    const q = pretragaKomentara.value.toLowerCase()
-    lista = lista.filter(k => (k.tekst ?? '').toLowerCase().includes(q))
-  }
-  if (sortirKomentare.value === 'najnovije') {
-    lista.sort((a, b) => (b.datumVrijeme?.seconds ?? 0) - (a.datumVrijeme?.seconds ?? 0))
-  } else {
-    lista.sort((a, b) => (a.datumVrijeme?.seconds ?? 0) - (b.datumVrijeme?.seconds ?? 0))
-  }
-  return lista
-})
-
-const filtriranihPrivitaka = computed(() => {
-  let lista = komentari.value.filter(k => k.privitak && k.privitekNaziv)
-  if (pretragaPrivitaka.value.trim()) {
-    const q = pretragaPrivitaka.value.toLowerCase()
-    lista = lista.filter(k => (k.privitekNaziv ?? '').toLowerCase().includes(q))
-  }
-  return lista
-})
-
-function korisnikNaziv(uid) {
-  if (!uid) return '—'
-  const k = korisnici.value[uid]
-  if (!k) return uid
-  return `${k.ime} ${k.prezime}`
-}
-
-function formatUloga(profil) {
-  const NAZIVI = { administrator: 'Administrator', developer: 'Developer', tester: 'Tester' }
-  return normalizirajUloge(profil).map(u => NAZIVI[u] ?? u).join(', ')
-}
-
-function formatDatum(ts) {
-  if (!ts) return '—'
-  const d = ts.toDate ? ts.toDate() : new Date(ts)
-  if (isNaN(d.getTime())) return '—'
-  return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}.`
-}
-
-function formatDatumVrijeme(ts) {
-  if (!ts) return '—'
-  const d = ts.toDate ? ts.toDate() : new Date(ts)
-  if (isNaN(d.getTime())) return '—'
-  const datum = `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}.`
-  const vrijeme = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-  return `${datum} ${vrijeme}`
-}
-
-function toggleKomentarMeni(id) {
-  otvoreniKomentarMeni.value = otvoreniKomentarMeni.value === id ? null : id
-}
-
-function toggleClanMeni(uid) {
-  otvoreniClanMeni.value = otvoreniClanMeni.value === uid ? null : uid
-}
-
-function toggleDodajClanaMeni() {
-  dodajClanaMeniOtvoren.value = !dodajClanaMeniOtvoren.value
-  if (dodajClanaMeniOtvoren.value && sviKorisnici.value.length === 0) {
-    ucitajSveKorisnike()
-  }
-}
-
-function zatvoriSveMeniji() {
-  otvoreniKomentarMeni.value = null
-  otvoreniClanMeni.value = null
-  dodajClanaMeniOtvoren.value = false
-}
-
-function mozeBrisatiKomentar(k) {
-  return authStore.jeAdministrator || k.korisnikUid === authStore.user?.uid
-}
-
-async function ucitajKorisnike(uids) {
-  const nepoznati = uids.filter(uid => uid && !korisnici.value[uid])
-  if (nepoznati.length === 0) return
-  const rezultati = await Promise.all(nepoznati.map(uid => dohvatiKorisnika(uid)))
-  rezultati.forEach((k, i) => {
-    if (k) korisnici.value[nepoznati[i]] = k
-  })
-}
-
-async function ucitajSveKorisnike() {
-  sviKorisnici.value = await dohvatiSveKorisnike()
-}
-
-async function ucitajProblem() {
-  problem.value = await dohvatiProblem(projektId, problemId)
-  if (problem.value) {
-    trenutniStatus.value    = problem.value.status
-    trenutniPrioritet.value = problem.value.prioritet
-    const uids = [problem.value.testerUid, problem.value.developerUid, problem.value.administratorUid].filter(Boolean)
-    await ucitajKorisnike(uids)
-  }
-}
-
-async function ucitajKomentare() {
-  ucitavanjeKomentara.value = true
-  try {
-    komentari.value = await dohvatiKomentare(projektId, problemId)
-    const uids = [...new Set(komentari.value.map(k => k.korisnikUid).filter(Boolean))]
-    await ucitajKorisnike(uids)
-  } finally {
-    ucitavanjeKomentara.value = false
-  }
-}
-
-function zatvoriKomentarModal() {
-  prikazNoviKomentar.value = false
-  noviKomentarTekst.value = ''
-  novaKomentarDatoteka.value = null
-  komentarGreska.value = ''
-}
-
-function onKomentarDatoteka(e) {
-  novaKomentarDatoteka.value = e.target.files?.[0] ?? null
-}
-
-async function spremiKomentar() {
-  if (!noviKomentarTekst.value.trim()) {
-    komentarGreska.value = 'Tekst komentara je obavezan.'
-    return
-  }
-  spremanjeKomentara.value = true
-  komentarGreska.value = ''
-  try {
-    await dodajKomentar(projektId, problemId, {
-      tekst: noviKomentarTekst.value.trim(),
-      korisnikUid: authStore.user.uid,
-      datoteka: novaKomentarDatoteka.value
-    })
-    await azurirajProblem(projektId, problemId, {})
-    zatvoriKomentarModal()
-    await ucitajKomentare()
-    problem.value = await dohvatiProblem(projektId, problemId)
-  } catch (e) {
-    komentarGreska.value = storageGreskaPoruka(e)
-  } finally {
-    spremanjeKomentara.value = false
-  }
-}
-
-async function potvrdiIzbrisKomentara(komentarId) {
-  otvoreniKomentarMeni.value = null
-  if (!confirm('Obrisati komentar?')) return
-  await obrisiKomentar(projektId, problemId, komentarId)
-  await ucitajKomentare()
-}
-
-async function uploadPrivitak(e) {
-  const datoteka = e.target.files?.[0]
-  if (!datoteka) return
-  uploadLoading.value = true
-  uploadGreska.value  = ''
-  try {
-    await dodajKomentar(projektId, problemId, {
-      tekst: datoteka.name,
-      korisnikUid: authStore.user.uid,
-      datoteka
-    })
-    await azurirajProblem(projektId, problemId, {})
-    await ucitajKomentare()
-    problem.value = await dohvatiProblem(projektId, problemId)
-  } catch (e) {
-    uploadGreska.value = storageGreskaPoruka(e)
-  } finally {
-    uploadLoading.value = false
-    if (fileInput.value) fileInput.value.value = ''
-  }
-}
-
-function storageGreskaPoruka(e) {
-  return e?.message || 'Greška pri uploadu datoteke.'
-}
-
-async function promijeniStatus() {
-  if (!problem.value || trenutniStatus.value === problem.value.status) return
-  await azurirajProblem(projektId, problemId, { status: trenutniStatus.value })
-  problem.value = { ...problem.value, status: trenutniStatus.value }
-}
-
-async function promijeniPrioritet() {
-  if (!problem.value || trenutniPrioritet.value === problem.value.prioritet) return
-  await azurirajProblem(projektId, problemId, { prioritet: trenutniPrioritet.value })
-  problem.value = { ...problem.value, prioritet: trenutniPrioritet.value }
-}
-
-async function dodajClana(korisnik) {
-  dodajClanaMeniOtvoren.value = false
-  if (!problem.value) return
-  const podaci = {}
-  const uloge = normalizirajUloge(korisnik)
-  if (uloge.includes('developer')) {
-    podaci.developerUid = korisnik.id
-    podaci.developerDodanDatum = new Date().toISOString()
-  } else if (uloge.includes('tester')) {
-    podaci.testerUid = korisnik.id
-  } else {
-    podaci.administratorUid = korisnik.id
-  }
-  await azurirajProblem(projektId, problemId, podaci)
-  await ucitajProblem()
-}
-
-async function ukloniClana(clan) {
-  otvoreniClanMeni.value = null
-  if (!problem.value) return
-  const podaci = {}
-  if (clan.uid === problem.value.developerUid) {
-    podaci.developerUid = null
-    podaci.developerDodanDatum = null
-  } else if (clan.uid === problem.value.testerUid) {
-    podaci.testerUid = null
-  }
-  await azurirajProblem(projektId, problemId, podaci)
-  await ucitajProblem()
-}
-
-onMounted(async () => {
-  await projektiStore.postaviAktivniProjekt(projektId)
-  await ucitajProblem()
-  await ucitajKomentare()
-  document.addEventListener('click', zatvoriSveMeniji)
-  window.addEventListener('resize', onWindowResize)
-  await nextTick()
-  if (containerRef.value && !isMobile.value) {
-    commentHeight.value = Math.round(containerRef.value.getBoundingClientRect().height * 0.55)
-  }
-})
-
-onBeforeUnmount(() => {
-  document.removeEventListener('click', zatvoriSveMeniji)
-  document.removeEventListener('mousemove', onDrag)
-  document.removeEventListener('mouseup', stopDrag)
-  document.removeEventListener('mousemove', onHDrag)
-  document.removeEventListener('mouseup', stopHDrag)
-  window.removeEventListener('resize', onWindowResize)
-})
-</script>

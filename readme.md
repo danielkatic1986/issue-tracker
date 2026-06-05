@@ -16,12 +16,12 @@ Mentor: [doc. dr. sc. Nikola Tanković](https://ntankovic.unipu.hr)
 
 - registracija i prijava korisnika
 - kreiranje projekata
-- prijavljivanje problema (issue)
+- prijavljivanje problema
 - dodjeljivanje problema članovima tima
-- promjena statusa problema (Open, In Progress, Resolved, Closed)
+- promjena statusa problema (Otvoren, U tijeku, Riješen, Zatvoren, Odbijen)
 - komentiranje problema
 - pregled svih problema po projektu
-- filtriranje problema po statusu, prioritetu i dodijeljenom korisniku
+- sortiranje i pretraga problema po naslovu, opisu i prioritetu
 
 ## Uloge korisnika
 
@@ -37,8 +37,9 @@ Projekt koristi sljedeće tehnologije:
 
 - **Vue.js** – frontend framework
 - **Vue Router** – navigacija između stranica
-- **Firebase** – backend i baza podataka
-- **CSS / Tailwind** – stiliziranje korisničkog sučelja
+- **Firebase** – backend i baza podataka (Firestore)
+- **Cloudinary** – pohrana i posluživanje datoteka priloženih uz komentare na problemima
+- **Tailwind CSS** – stiliziranje korisničkog sučelja
 
 ## Struktura aplikacije
 
@@ -64,10 +65,8 @@ Cilj projekta je demonstrirati primjenu principa **programskog inženjerstva**, 
 - email notifikacije
 - napredni sustav filtriranja
 - Kanban board
-- statistika bugova po projektu
 
 ## Use Case dijagram
-
 
 ### Akteri
 
@@ -85,7 +84,7 @@ Administrator upravlja projektima i korisnicima unutar sustava te može dodjelji
 
 ### Opis dijagrama
 
-Use Case dijagram prikazuje interakciju između aktera (Tester, Developer i Administrator) i funkcionalnosti sustava BugTracker. 
+Use Case dijagram prikazuje interakciju između aktera (Tester, Developer i Administrator) i funkcionalnosti sustava BugTracker.
 
 Dijagram prikazuje glavne funkcije sustava kao što su prijava problema, pregled problema, komentiranje problema, obrada problema te upravljanje projektima i korisnicima.
 
@@ -100,10 +99,11 @@ Akter: Tester
 Opis:
 Tester prijavljuje novi problem u sustavu kako bi developer mogao analizirati i popraviti grešku.
 
-Preduvijet: 
+Preduvijet:
 Tester je prijavljen u sustav.
 
 Glavni tok:
+
 1. Tester otvara formu za prijavu problema.
 2. Sustav prikazuje obrazac za unos problema.
 3. Tester unosi podatke o problemu.
@@ -112,10 +112,12 @@ Glavni tok:
 6. Sustav prikazuje potvrdu o uspješnom spremanju problema.
 
 Alternativni tok:
+
 1. Sustav prikazuje poruku o grešci.
 2. Tester ispravlja podatke
 
 Postuvjet:
+
 - Novi problem je evidentiran u sustavu.
 - Problem je dostupan developerima za obradu.
 

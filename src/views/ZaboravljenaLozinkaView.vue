@@ -1,30 +1,35 @@
 <script setup>
+// Stranica za resetiranje lozinke.
+// Firebase šalje email s linkom za reset — aplikacija samo pokrene taj proces i prikaže potvrdu.
+// Sama promjena lozinke događa se na Firebaseovoj stranici, ne ovdje.
+
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { auth } from '@/firebase'
 import { sendPasswordResetEmail } from 'firebase/auth'
 
-const email = ref('')
-const greska = ref('')
-const uspjeh = ref(false)
+const email      = ref('')
+const greska     = ref('')
+const uspjeh     = ref(false)
 const ucitavanje = ref(false)
 
 const router = useRouter()
 
+// Firebase error kodovi prevedeni u čitljive poruke
 const poruckeGresaka = {
-  'auth/user-not-found': 'Nema korisnika s tim email adresom.',
-  'auth/invalid-email': 'Email adresa nije ispravna.',
-  'auth/too-many-requests': 'Previše pokušaja. Pokušajte kasnije.',
-  'auth/network-request-failed': 'Greška mreže. Provjerite internet vezu.'
+  'auth/user-not-found':        'Nema korisnika s tim email adresom.',
+  'auth/invalid-email':         'Email adresa nije ispravna.',
+  'auth/too-many-requests':     'Previše pokušaja. Pokušajte kasnije.',
+  'auth/network-request-failed':'Greška mreže. Provjerite internet vezu.'
 }
 
+// Šalje zahtjev Firebaseu da pošalje reset email — ne možemo kontrolirati sadržaj tog emaila
 async function handleSubmit() {
-  greska.value = ''
+  greska.value     = ''
   ucitavanje.value = true
-
   try {
     await sendPasswordResetEmail(auth, email.value)
-    uspjeh.value = true
+    uspjeh.value = true // prikaži poruku uspjeha umjesto forme
   } catch (e) {
     greska.value = poruckeGresaka[e.code] ?? 'Došlo je do greške. Pokušajte ponovo.'
   } finally {

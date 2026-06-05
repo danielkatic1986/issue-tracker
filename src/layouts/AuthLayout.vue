@@ -1,3 +1,9 @@
+<script setup>
+// Layout za javne stranice (prijava, zaboravljena lozinka).
+// Dijeli ekran na pola: lijeva strana je dekorativna slika (skrivena na mobitelu),
+// desna strana prikazuje aktualni view (RouterView).
+</script>
+
 <template>
   <div class="h-screen flex overflow-hidden">
     <div class="hidden md:block relative w-1/2 h-screen overflow-hidden">

@@ -1,3 +1,7 @@
+// Sve Firestore operacije vezane uz probleme (issues).
+// Problemi su podkolekcija projekta, pa svaki poziv mora sadržavati projektId
+// kako bi Firestore znao u kojoj se kolekciji nalazi: projekti/{projektId}/problemi
+
 import { db } from '@/firebase'
 import {
   collection,
@@ -13,7 +17,7 @@ import {
   where
 } from 'firebase/firestore'
 
-// Mogući statusi problema
+// Sve moguće vrijednosti statusa problema
 export const STATUSI_PROBLEMA = {
   OTVOREN: 'otvoren',
   U_TIJEKU: 'u tijeku',
@@ -22,7 +26,7 @@ export const STATUSI_PROBLEMA = {
   ODBIJEN: 'odbijen'
 }
 
-// Prioriteti problema
+// Sve moguće razine prioriteta
 export const PRIORITETI = {
   NIZAK: 'nizak',
   SREDNJI: 'srednji',
@@ -30,19 +34,10 @@ export const PRIORITETI = {
   KRITICAN: 'kritičan'
 }
 
-/**
- * Kreira novi problem unutar projekta.
- * @param {string} projektId - ID projekta kojemu problem pripada
- * @param {object} podaci - podaci problema
- * @param {string} podaci.naslov
- * @param {string} podaci.opis
- * @param {string} podaci.status
- * @param {string} podaci.prioritet
- * @param {string} podaci.testerUid - UID testera koji je prijavio problem
- * @param {string|null} podaci.developerUid - UID developera koji radi na problemu
- * @param {string|null} podaci.administratorUid - UID administratora koji je dodijelio
- * @param {Date|string|null} podaci.datumZavrsetka
- */
+// Kreira novi problem unutar projekta.
+// Problem pamti tko ga je prijavio (testerUid), kome je dodijeljen (developerUid)
+// i tko ga je dodijelio (administratorUid) — sve kao Firebase UID-ovi.
+// Zadane vrijednosti osiguravaju da problem uvijek ima status i prioritet čak i ako se ne proslijede.
 export async function kreirajProblem(projektId, {
   naslov,
   opis,
@@ -61,16 +56,14 @@ export async function kreirajProblem(projektId, {
     testerUid,
     developerUid,
     administratorUid,
-    projektId,
+    projektId, // spremamo i projektId direktno u dokument — olakšava dohvat s dashboarda gdje trebamo znati kojemu projektu problem pripada
     datumPrijave: serverTimestamp(),
     datumZavrsetka: datumZavrsetka ? Timestamp.fromDate(new Date(datumZavrsetka)) : null
   })
   return ref.id
 }
 
-/**
- * Dohvaća jedan problem iz projekta.
- */
+// Dohvati jedan problem po ID-u unutar projekta
 export async function dohvatiProblem(projektId, problemId) {
   const ref = doc(db, 'projekti', projektId, 'problemi', problemId)
   const snap = await getDoc(ref)
@@ -78,17 +71,15 @@ export async function dohvatiProblem(projektId, problemId) {
   return { id: snap.id, ...snap.data() }
 }
 
-/**
- * Dohvaća sve probleme jednog projekta.
- */
+// Dohvati sve probleme jednog projekta
 export async function dohvatiSveProbleme(projektId) {
   const snap = await getDocs(collection(db, 'projekti', projektId, 'problemi'))
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
 }
 
-/**
- * Dohvaća probleme dodijeljene određenom developeru.
- */
+// Dohvati samo probleme koji su dodijeljeni određenom developeru.
+// where() je Firestore filter koji radi na razini baze — vraća samo odgovarajuće dokumente,
+// a ne sve pa onda filtrira u JavaScriptu.
 export async function dohvatiProblemeZaDevelopera(projektId, developerUid) {
   const q = query(
     collection(db, 'projekti', projektId, 'problemi'),
@@ -98,9 +89,7 @@ export async function dohvatiProblemeZaDevelopera(projektId, developerUid) {
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
 }
 
-/**
- * Dohvaća probleme koje je prijavio određeni tester.
- */
+// Dohvati samo probleme koje je prijavio određeni tester
 export async function dohvatiProblemeZaTestera(projektId, testerUid) {
   const q = query(
     collection(db, 'projekti', projektId, 'problemi'),
@@ -110,9 +99,9 @@ export async function dohvatiProblemeZaTestera(projektId, testerUid) {
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
 }
 
-/**
- * Ažurira problem (npr. mijenja status, dodjeljuje developera...).
- */
+// Ažuriraj bilo koji podatak problema.
+// zadnjaMijenjanja se automatski postavlja na trenutno vrijeme kod svake izmjene
+// kako bi sučelje moglo prikazati kada je problem zadnji put uređivan.
 export async function azurirajProblem(projektId, problemId, podaci) {
   const ref = doc(db, 'projekti', projektId, 'problemi', problemId)
   const payload = { ...podaci, zadnjaMijenjanja: serverTimestamp() }
@@ -122,9 +111,8 @@ export async function azurirajProblem(projektId, problemId, podaci) {
   await updateDoc(ref, payload)
 }
 
-/**
- * Dodjeljuje developera na problem (akcija administratora).
- */
+// Dodjeli developera na problem i automatski postavi status na "U tijeku".
+// Ovo je zapravo samo omotač oko azurirajProblem s unaprijed određenim podacima.
 export async function dodijeliDevelopera(projektId, problemId, developerUid, administratorUid) {
   await azurirajProblem(projektId, problemId, {
     developerUid,
@@ -133,9 +121,7 @@ export async function dodijeliDevelopera(projektId, problemId, developerUid, adm
   })
 }
 
-/**
- * Briše problem.
- */
+// Obriši problem iz baze
 export async function obrisiProblem(projektId, problemId) {
   const ref = doc(db, 'projekti', projektId, 'problemi', problemId)
   await deleteDoc(ref)

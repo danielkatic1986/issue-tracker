@@ -1,3 +1,205 @@
+<script setup>
+// Stranica s popisom svih projekata.
+// Administrator može kreirati, uređivati i brisati projekte.
+// Ostali korisnici vide popis i mogu kliknuti na projekt kako bi vidjeli probleme.
+
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { useRouter } from 'vue-router'
+import {
+  dohvatiSveProjekte,
+  kreirajProjekt,
+  azurirajProjekt,
+  obrisiProjekt,
+  STATUSI_PROJEKTA
+} from '@/services/projektService'
+import { dohvatiSveProbleme } from '@/services/problemService'
+import { useAuthStore } from '@/stores/authStore'
+
+const authStore = useAuthStore()
+const router    = useRouter()
+
+const projekti    = ref([])
+const ucitavanje  = ref(true)
+const sortir      = ref('najnovije')
+const pretraga    = ref('')
+const otvoreniMeni = ref(null)
+
+const prikazDodaj = ref(false)
+const prikazUredi = ref(false)
+const aktivniId   = ref(null)
+const forma       = ref(praznaForma())
+const formaGreska = ref('')
+const sprema      = ref(false)
+
+// Datum je razbijen na tri odvojena polja jer koristimo custom input umjesto <input type="date">
+const datumDan    = ref('')
+const datumMjesec = ref('')
+const datumGodina = ref('')
+
+function praznaForma() {
+  return { naziv: '', opis: '', status: STATUSI_PROJEKTA.AKTIVAN }
+}
+
+// Složi uneseni datum u ISO format (YYYY-MM-DD) koji Firestore servis očekuje
+function datumZavrsetkaISO() {
+  if (!datumDan.value || !datumMjesec.value || !datumGodina.value) return ''
+  const dd = String(datumDan.value).padStart(2, '0')
+  const mm = String(datumMjesec.value).padStart(2, '0')
+  return `${datumGodina.value}-${mm}-${dd}`
+}
+
+function resetirajDatum() {
+  datumDan.value    = ''
+  datumMjesec.value = ''
+  datumGodina.value = ''
+}
+
+// Filtriraj i sortiraj projekte prema pretrazi i odabranom načinu sortiranja
+const filtrirani = computed(() => {
+  let lista = [...projekti.value]
+
+  if (pretraga.value.trim()) {
+    const q = pretraga.value.toLowerCase()
+    lista = lista.filter(
+      (p) => p.naziv.toLowerCase().includes(q) || (p.opis ?? '').toLowerCase().includes(q)
+    )
+  }
+
+  if (sortir.value === 'najnovije') {
+    lista.sort((a, b) => (b.datumKreiranja?.seconds ?? 0) - (a.datumKreiranja?.seconds ?? 0))
+  } else if (sortir.value === 'najstarije') {
+    lista.sort((a, b) => (a.datumKreiranja?.seconds ?? 0) - (b.datumKreiranja?.seconds ?? 0))
+  } else {
+    lista.sort((a, b) => a.naziv.localeCompare(b.naziv, 'hr'))
+  }
+
+  return lista
+})
+
+// Pretvori Firestore Timestamp u čitljivi datum
+function formatDatum(ts) {
+  if (!ts) return '—'
+  const d = ts.toDate ? ts.toDate() : new Date(ts)
+  if (isNaN(d.getTime())) return '—'
+  const dd = String(d.getDate()).padStart(2, '0')
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  return `${dd}.${mm}.${d.getFullYear()}.`
+}
+
+// Prijevod statusa iz internog koda u tekst za prikaz
+function formatStatus(s) {
+  return {
+    [STATUSI_PROJEKTA.AKTIVAN]:  'U tijeku',
+    [STATUSI_PROJEKTA.ZAVRSEN]:  'Završen',
+    [STATUSI_PROJEKTA.PAUZIRAN]: 'Pauziran',
+    [STATUSI_PROJEKTA.OTKAZAN]:  'Otkazan',
+  }[s] ?? s
+}
+
+// Boja badge-a ovisno o statusu projekta
+function statusBoja(s) {
+  return {
+    [STATUSI_PROJEKTA.AKTIVAN]:  'bg-blue-50 text-blue-600',
+    [STATUSI_PROJEKTA.ZAVRSEN]:  'bg-green-50 text-green-600',
+    [STATUSI_PROJEKTA.PAUZIRAN]: 'bg-amber-50 text-amber-600',
+    [STATUSI_PROJEKTA.OTKAZAN]:  'bg-red-50 text-red-500',
+  }[s] ?? 'bg-gray-100 text-gray-500'
+}
+
+// Otvori/zatvori kontekstni meni za projekt (uredi/obriši)
+function toggleMeni(id) {
+  otvoreniMeni.value = otvoreniMeni.value === id ? null : id
+}
+
+function zatvoriMeni() {
+  otvoreniMeni.value = null
+}
+
+function zatvoriModal() {
+  prikazDodaj.value = false
+  prikazUredi.value = false
+  aktivniId.value   = null
+  forma.value       = praznaForma()
+  formaGreska.value = ''
+  resetirajDatum()
+}
+
+// Popuni formu s postojećim podacima projekta za uređivanje
+function otvoriUredi(projekt) {
+  zatvoriMeni()
+  aktivniId.value = projekt.id
+  forma.value = {
+    naziv:  projekt.naziv,
+    opis:   projekt.opis ?? '',
+    status: projekt.status,
+  }
+  if (projekt.datumZavrsetka) {
+    const d = projekt.datumZavrsetka.toDate()
+    datumDan.value    = d.getDate()
+    datumMjesec.value = d.getMonth() + 1
+    datumGodina.value = d.getFullYear()
+  } else {
+    resetirajDatum()
+  }
+  prikazUredi.value = true
+}
+
+// Spremi novi ili uređeni projekt ovisno o tome koji modal je otvoren
+async function spremiProjekt() {
+  formaGreska.value = ''
+  if (!forma.value.naziv.trim()) {
+    formaGreska.value = 'Naziv projekta je obavezan.'
+    return
+  }
+  sprema.value = true
+  try {
+    const podaci = { ...forma.value, datumZavrsetka: datumZavrsetkaISO() }
+    if (prikazUredi.value) {
+      await azurirajProjekt(aktivniId.value, podaci)
+    } else {
+      await kreirajProjekt(podaci)
+    }
+    zatvoriModal()
+    await ucitajProjekte()
+  } finally {
+    sprema.value = false
+  }
+}
+
+async function potvrdiIzbris(id) {
+  zatvoriMeni()
+  if (!confirm('Jeste li sigurni da želite obrisati ovaj projekt?')) return
+  await obrisiProjekt(id)
+  await ucitajProjekte()
+}
+
+// Dohvati projekte i za svaki dodatno učitaj broj problema jer se taj podatak prikazuje u tablici
+async function ucitajProjekte() {
+  ucitavanje.value = true
+  try {
+    const svi = await dohvatiSveProjekte()
+    projekti.value = await Promise.all(
+      svi.map(async (p) => {
+        const problemi = await dohvatiSveProbleme(p.id)
+        return { ...p, brojProblema: problemi.length }
+      })
+    )
+  } finally {
+    ucitavanje.value = false
+  }
+}
+
+// Listener za klik izvan menija — zatvara sve otvorene kontekstne menije
+onMounted(() => {
+  ucitajProjekte()
+  document.addEventListener('click', zatvoriMeni)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('click', zatvoriMeni)
+})
+</script>
+
 <template>
   <div class="p-6 h-full flex flex-col gap-4">
 
@@ -223,27 +425,15 @@
           <div>
             <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Rok (datum završetka)</label>
             <div class="flex items-center gap-1.5">
-              <input
-                v-model="datumDan"
-                type="number"
-                placeholder="DD"
-                min="1" max="31"
+              <input v-model="datumDan" type="number" placeholder="DD" min="1" max="31"
                 class="w-14 border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-2 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 text-center focus:outline-none focus:border-gray-400 dark:focus:border-gray-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               />
               <span class="text-gray-400 select-none">/</span>
-              <input
-                v-model="datumMjesec"
-                type="number"
-                placeholder="MM"
-                min="1" max="12"
+              <input v-model="datumMjesec" type="number" placeholder="MM" min="1" max="12"
                 class="w-14 border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-2 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 text-center focus:outline-none focus:border-gray-400 dark:focus:border-gray-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               />
               <span class="text-gray-400 select-none">/</span>
-              <input
-                v-model="datumGodina"
-                type="number"
-                placeholder="YYYY"
-                min="2024" max="2100"
+              <input v-model="datumGodina" type="number" placeholder="YYYY" min="2024" max="2100"
                 class="w-20 border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-2 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 text-center focus:outline-none focus:border-gray-400 dark:focus:border-gray-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               />
             </div>
@@ -253,17 +443,11 @@
         <p v-if="formaGreska" class="text-xs text-red-500 mt-3">{{ formaGreska }}</p>
 
         <div class="flex justify-end gap-3 mt-6">
-          <button
-            @click="zatvoriModal"
-            class="px-4 py-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-          >
+          <button @click="zatvoriModal" class="px-4 py-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">
             Odustani
           </button>
-          <button
-            @click="spremiProjekt"
-            :disabled="sprema"
-            class="px-5 py-2 text-sm bg-gray-800 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 transition-colors"
-          >
+          <button @click="spremiProjekt" :disabled="sprema"
+            class="px-5 py-2 text-sm bg-gray-800 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 transition-colors">
             {{ sprema ? 'Spremanje...' : (prikazUredi ? 'Spremi' : 'Kreiraj') }}
           </button>
         </div>
@@ -272,190 +456,3 @@
 
   </div>
 </template>
-
-<script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
-import { useRouter } from 'vue-router'
-import {
-  dohvatiSveProjekte,
-  kreirajProjekt,
-  azurirajProjekt,
-  obrisiProjekt,
-  STATUSI_PROJEKTA
-} from '@/services/projektService'
-import { dohvatiSveProbleme } from '@/services/problemService'
-import { useAuthStore } from '@/stores/authStore'
-
-const authStore = useAuthStore()
-const router = useRouter()
-
-const projekti   = ref([])
-const ucitavanje = ref(true)
-const sortir     = ref('najnovije')
-const pretraga   = ref('')
-const otvoreniMeni = ref(null)
-
-const prikazDodaj = ref(false)
-const prikazUredi = ref(false)
-const aktivniId   = ref(null)
-const forma       = ref(praznaForma())
-const formaGreska = ref('')
-const sprema      = ref(false)
-
-const datumDan    = ref('')
-const datumMjesec = ref('')
-const datumGodina = ref('')
-
-function praznaForma() {
-  return { naziv: '', opis: '', status: STATUSI_PROJEKTA.AKTIVAN }
-}
-
-function datumZavrsetkaISO() {
-  if (!datumDan.value || !datumMjesec.value || !datumGodina.value) return ''
-  const dd = String(datumDan.value).padStart(2, '0')
-  const mm = String(datumMjesec.value).padStart(2, '0')
-  return `${datumGodina.value}-${mm}-${dd}`
-}
-
-function resetirajDatum() {
-  datumDan.value    = ''
-  datumMjesec.value = ''
-  datumGodina.value = ''
-}
-
-const filtrirani = computed(() => {
-  let lista = [...projekti.value]
-
-  if (pretraga.value.trim()) {
-    const q = pretraga.value.toLowerCase()
-    lista = lista.filter(
-      (p) => p.naziv.toLowerCase().includes(q) || (p.opis ?? '').toLowerCase().includes(q)
-    )
-  }
-
-  if (sortir.value === 'najnovije') {
-    lista.sort((a, b) => (b.datumKreiranja?.seconds ?? 0) - (a.datumKreiranja?.seconds ?? 0))
-  } else if (sortir.value === 'najstarije') {
-    lista.sort((a, b) => (a.datumKreiranja?.seconds ?? 0) - (b.datumKreiranja?.seconds ?? 0))
-  } else {
-    lista.sort((a, b) => a.naziv.localeCompare(b.naziv, 'hr'))
-  }
-
-  return lista
-})
-
-function formatDatum(ts) {
-  if (!ts) return '—'
-  const d = ts.toDate ? ts.toDate() : new Date(ts)
-  if (isNaN(d.getTime())) return '—'
-  const dd = String(d.getDate()).padStart(2, '0')
-  const mm = String(d.getMonth() + 1).padStart(2, '0')
-  return `${dd}.${mm}.${d.getFullYear()}.`
-}
-
-function formatStatus(s) {
-  return {
-    [STATUSI_PROJEKTA.AKTIVAN]:  'U tijeku',
-    [STATUSI_PROJEKTA.ZAVRSEN]:  'Završen',
-    [STATUSI_PROJEKTA.PAUZIRAN]: 'Pauziran',
-    [STATUSI_PROJEKTA.OTKAZAN]:  'Otkazan',
-  }[s] ?? s
-}
-
-function statusBoja(s) {
-  return {
-    [STATUSI_PROJEKTA.AKTIVAN]:  'bg-blue-50 text-blue-600',
-    [STATUSI_PROJEKTA.ZAVRSEN]:  'bg-green-50 text-green-600',
-    [STATUSI_PROJEKTA.PAUZIRAN]: 'bg-amber-50 text-amber-600',
-    [STATUSI_PROJEKTA.OTKAZAN]:  'bg-red-50 text-red-500',
-  }[s] ?? 'bg-gray-100 text-gray-500'
-}
-
-function toggleMeni(id) {
-  otvoreniMeni.value = otvoreniMeni.value === id ? null : id
-}
-
-function zatvoriMeni() {
-  otvoreniMeni.value = null
-}
-
-function zatvoriModal() {
-  prikazDodaj.value = false
-  prikazUredi.value = false
-  aktivniId.value   = null
-  forma.value       = praznaForma()
-  formaGreska.value = ''
-  resetirajDatum()
-}
-
-function otvoriUredi(projekt) {
-  zatvoriMeni()
-  aktivniId.value = projekt.id
-  forma.value = {
-    naziv:  projekt.naziv,
-    opis:   projekt.opis ?? '',
-    status: projekt.status,
-  }
-  if (projekt.datumZavrsetka) {
-    const d = projekt.datumZavrsetka.toDate()
-    datumDan.value    = d.getDate()
-    datumMjesec.value = d.getMonth() + 1
-    datumGodina.value = d.getFullYear()
-  } else {
-    resetirajDatum()
-  }
-  prikazUredi.value = true
-}
-
-async function spremiProjekt() {
-  formaGreska.value = ''
-  if (!forma.value.naziv.trim()) {
-    formaGreska.value = 'Naziv projekta je obavezan.'
-    return
-  }
-  sprema.value = true
-  try {
-    const podaci = { ...forma.value, datumZavrsetka: datumZavrsetkaISO() }
-    if (prikazUredi.value) {
-      await azurirajProjekt(aktivniId.value, podaci)
-    } else {
-      await kreirajProjekt(podaci)
-    }
-    zatvoriModal()
-    await ucitajProjekte()
-  } finally {
-    sprema.value = false
-  }
-}
-
-async function potvrdiIzbris(id) {
-  zatvoriMeni()
-  if (!confirm('Jeste li sigurni da želite obrisati ovaj projekt?')) return
-  await obrisiProjekt(id)
-  await ucitajProjekte()
-}
-
-async function ucitajProjekte() {
-  ucitavanje.value = true
-  try {
-    const svi = await dohvatiSveProjekte()
-    projekti.value = await Promise.all(
-      svi.map(async (p) => {
-        const problemi = await dohvatiSveProbleme(p.id)
-        return { ...p, brojProblema: problemi.length }
-      })
-    )
-  } finally {
-    ucitavanje.value = false
-  }
-}
-
-onMounted(() => {
-  ucitajProjekte()
-  document.addEventListener('click', zatvoriMeni)
-})
-
-onBeforeUnmount(() => {
-  document.removeEventListener('click', zatvoriMeni)
-})
-</script>

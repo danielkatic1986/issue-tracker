@@ -1,30 +1,33 @@
 <script setup>
+// Stranica za prijavu u aplikaciju.
+// Šalje kredencijale authStoreu koji komunicira s Firebase Authom.
+
 import { useAuthStore } from '@/stores/authStore'
 import { useRouter } from 'vue-router'
 import { ref } from 'vue'
 
-const email = ref('')
-const password = ref('')
-const greska = ref('')
+const email      = ref('')
+const password   = ref('')
+const greska     = ref('')
 const ucitavanje = ref(false)
 
 const authStore = useAuthStore()
-const router = useRouter()
+const router    = useRouter()
 
-// Mapiranje Firebase error kodova na čitljive poruke
+// Firebase vraća error kodove umjesto čitljivih poruka, pa ih ovdje prevodimo
 const poruckeGresaka = {
-  'auth/invalid-credential': 'Pogrešan email ili lozinka.',
-  'auth/user-not-found': 'Korisnik s tim emailom ne postoji.',
-  'auth/wrong-password': 'Pogrešna lozinka.',
-  'auth/too-many-requests': 'Previše neuspjelih pokušaja. Pokušajte kasnije.',
-  'auth/user-disabled': 'Ovaj korisnički račun je deaktiviran.',
-  'auth/network-request-failed': 'Greška mreže. Provjerite internet vezu.'
+  'auth/invalid-credential':    'Pogrešan email ili lozinka.',
+  'auth/user-not-found':        'Korisnik s tim emailom ne postoji.',
+  'auth/wrong-password':        'Pogrešna lozinka.',
+  'auth/too-many-requests':     'Previše neuspjelih pokušaja. Pokušajte kasnije.',
+  'auth/user-disabled':         'Ovaj korisnički račun je deaktiviran.',
+  'auth/network-request-failed':'Greška mreže. Provjerite internet vezu.'
 }
 
+// Poziva authStore.login() i preusmjerava na dashboard pri uspjehu
 async function handleSubmit() {
-  greska.value = ''
+  greska.value     = ''
   ucitavanje.value = true
-
   try {
     await authStore.login(email.value, password.value)
     router.push('/')

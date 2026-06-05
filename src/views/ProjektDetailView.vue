@@ -1,3 +1,299 @@
+<script setup>
+// Popis svih problema za jedan projekt.
+// Sortiranje i pretraga rade se lokalno — svi problemi se dohvate odjednom, bez filtera na razini baze.
+// Svaki problem dobiva i broj komentara, što zahtijeva dodatni upit po problemu pri učitavanju.
+
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/authStore'
+import { useProjektiStore } from '@/stores/projektiStore'
+import {
+  dohvatiSveProbleme,
+  kreirajProblem,
+  azurirajProblem,
+  obrisiProblem,
+  PRIORITETI
+} from '@/services/problemService'
+import { dohvatiKomentare } from '@/services/komentarService'
+
+const route  = useRoute()
+const router = useRouter()
+const authStore     = useAuthStore()
+const projektiStore = useProjektiStore()
+
+const projektId = route.params.projektId
+
+const problemi      = ref([])
+const ucitavanje    = ref(true)
+const sortir        = ref('najnovije')
+const pretraga      = ref('')
+const otvoreniMeni  = ref(null)
+
+const prikazModal    = ref(false)
+const aktivniProblem = ref(null)
+const forma          = ref(praznaForma())
+const formaGreska    = ref('')
+const sprema         = ref(false)
+
+// Datum roka je razbijen na tri odvojena polja jer koristimo custom input umjesto <input type="date">
+const datumDan    = ref('')
+const datumMjesec = ref('')
+const datumGodina = ref('')
+
+const pokaziProduljenje  = ref(false)
+const noviDatumDan       = ref('')
+const noviDatumMjesec    = ref('')
+const noviDatumGodina    = ref('')
+const produljenjeGreska  = ref('')
+
+// Svi korisnici mogu prijaviti problem, ali samo administrator može uređivati i brisati
+const mozeDodati    = computed(() => authStore.jeAdministrator || authStore.jeTester || authStore.jeDeveloper)
+const mozeMijenjati = computed(() => authStore.jeAdministrator)
+
+const ZATVORENI_STATUSI   = new Set(['zatvoren', 'riješen', 'odbijen'])
+const PRIORITET_REDOSLJED = { 'kritičan': 4, visok: 3, srednji: 2, nizak: 1 }
+
+function jeZatvoren(p) {
+  return ZATVORENI_STATUSI.has(p.status)
+}
+
+function prioritetBoja(prioritet) {
+  return {
+    'kritičan': 'bg-red-500',
+    visok:      'bg-orange-400',
+    srednji:    'bg-amber-400',
+    nizak:      'bg-gray-300'
+  }[prioritet] ?? 'bg-gray-200'
+}
+
+function praznaForma() {
+  return { naslov: '', opis: '', prioritet: PRIORITETI.SREDNJI }
+}
+
+function datumZavrsetkaISO() {
+  if (!datumDan.value || !datumMjesec.value || !datumGodina.value) return ''
+  const dd = String(datumDan.value).padStart(2, '0')
+  const mm = String(datumMjesec.value).padStart(2, '0')
+  return `${datumGodina.value}-${mm}-${dd}`
+}
+
+function resetirajDatum() {
+  datumDan.value = ''
+  datumMjesec.value = ''
+  datumGodina.value = ''
+}
+
+// Upozori korisnika ako rok problema premašuje rok projekta — i ponudi inline produljenje projekta
+const upozorenjeDatuma = computed(() => {
+  const projekt = projektiStore.aktivniProjekt
+  if (!projekt?.datumZavrsetka) return null
+  const iso = datumZavrsetkaISO()
+  if (!iso) return null
+  const problemDate = new Date(iso)
+  const projektDate = projekt.datumZavrsetka.toDate
+    ? projekt.datumZavrsetka.toDate()
+    : new Date(projekt.datumZavrsetka)
+  if (problemDate > projektDate) return { problemDate, projektDate }
+  return null
+})
+
+function formatDatumObican(d) {
+  return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}.`
+}
+
+watch(pokaziProduljenje, (val) => {
+  if (val && upozorenjeDatuma.value) {
+    const d = upozorenjeDatuma.value.problemDate
+    noviDatumDan.value    = d.getDate()
+    noviDatumMjesec.value = d.getMonth() + 1
+    noviDatumGodina.value = d.getFullYear()
+    produljenjeGreska.value = ''
+  }
+})
+
+async function produljRokProjekta() {
+  produljenjeGreska.value = ''
+  if (!noviDatumDan.value || !noviDatumMjesec.value || !noviDatumGodina.value) {
+    produljenjeGreska.value = 'Unesite datum.'
+    return
+  }
+  const dd = String(noviDatumDan.value).padStart(2, '0')
+  const mm = String(noviDatumMjesec.value).padStart(2, '0')
+  const noviIso = `${noviDatumGodina.value}-${mm}-${dd}`
+  if (new Date(noviIso) < new Date(datumZavrsetkaISO())) {
+    produljenjeGreska.value = 'Novi rok projekta mora biti na datum roka problema ili nakon njega.'
+    return
+  }
+  await projektiStore.urediProjekt(projektId, { datumZavrsetka: noviIso })
+  pokaziProduljenje.value = false
+}
+
+// Zatvoreni problemi (riješen, zatvoren, odbijen) uvijek idu na dno, bez obzira na odabrani sort
+const filtrirani = computed(() => {
+  let lista = [...problemi.value]
+
+  if (pretraga.value.trim()) {
+    const q = pretraga.value.toLowerCase()
+    lista = lista.filter(
+      p => p.naslov.toLowerCase().includes(q) || (p.opis ?? '').toLowerCase().includes(q)
+    )
+  }
+
+  lista.sort((a, b) => {
+    const aZ = jeZatvoren(a) ? 1 : 0
+    const bZ = jeZatvoren(b) ? 1 : 0
+    if (aZ !== bZ) return aZ - bZ
+
+    if (sortir.value === 'najnovije')      return (b.datumPrijave?.seconds ?? 0) - (a.datumPrijave?.seconds ?? 0)
+    if (sortir.value === 'najstarije')     return (a.datumPrijave?.seconds ?? 0) - (b.datumPrijave?.seconds ?? 0)
+    if (sortir.value === 'naziv')          return a.naslov.localeCompare(b.naslov, 'hr')
+    if (sortir.value === 'prioritet_desc') return (PRIORITET_REDOSLJED[b.prioritet] ?? 0) - (PRIORITET_REDOSLJED[a.prioritet] ?? 0)
+    if (sortir.value === 'prioritet_asc')  return (PRIORITET_REDOSLJED[a.prioritet] ?? 0) - (PRIORITET_REDOSLJED[b.prioritet] ?? 0)
+    return 0
+  })
+
+  return lista
+})
+
+function formatDatum(ts) {
+  if (!ts) return '—'
+  const d = ts.toDate ? ts.toDate() : new Date(ts)
+  if (isNaN(d.getTime())) return '—'
+  return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}.`
+}
+
+function formatStatus(s) {
+  return {
+    otvoren:    'Otvoren',
+    'u tijeku': 'U tijeku',
+    riješen:    'Završeno',
+    zatvoren:   'Zatvoren',
+    odbijen:    'Odbijen'
+  }[s] ?? s
+}
+
+function toggleMeni(id) {
+  otvoreniMeni.value = otvoreniMeni.value === id ? null : id
+}
+
+function zatvoriMeni() {
+  otvoreniMeni.value = null
+}
+
+function navigirajNaProblem(problem) {
+  router.push(`/projekti/${projektId}/problemi/${problem.id}`)
+}
+
+function zatvoriModal() {
+  prikazModal.value = false
+  aktivniProblem.value = null
+  forma.value = praznaForma()
+  formaGreska.value = ''
+  resetirajDatum()
+  pokaziProduljenje.value = false
+  noviDatumDan.value = ''
+  noviDatumMjesec.value = ''
+  noviDatumGodina.value = ''
+  produljenjeGreska.value = ''
+  router.replace({ path: route.path })
+}
+
+function otvoriUredi(problem) {
+  zatvoriMeni()
+  aktivniProblem.value = problem
+  forma.value = {
+    naslov:    problem.naslov,
+    opis:      problem.opis ?? '',
+    prioritet: problem.prioritet
+  }
+  if (problem.datumZavrsetka) {
+    const d = problem.datumZavrsetka.toDate()
+    datumDan.value    = d.getDate()
+    datumMjesec.value = d.getMonth() + 1
+    datumGodina.value = d.getFullYear()
+  } else {
+    resetirajDatum()
+  }
+  prikazModal.value = true
+}
+
+async function spremiProblem() {
+  formaGreska.value = ''
+  if (!forma.value.naslov.trim()) {
+    formaGreska.value = 'Naslov je obavezan.'
+    return
+  }
+  if (upozorenjeDatuma.value) {
+    formaGreska.value = `Rok problema ne može biti nakon roka projekta (${formatDatumObican(upozorenjeDatuma.value.projektDate)}).`
+    return
+  }
+  sprema.value = true
+  try {
+    const podaci = { ...forma.value, datumZavrsetka: datumZavrsetkaISO() || null }
+    if (aktivniProblem.value) {
+      await azurirajProblem(projektId, aktivniProblem.value.id, podaci)
+    } else {
+      const uid = authStore.user.uid
+      await kreirajProblem(projektId, {
+        ...podaci,
+        testerUid:        authStore.jeTester       ? uid : null,
+        administratorUid: authStore.jeAdministrator ? uid : null,
+        developerUid:     null
+      })
+    }
+    zatvoriModal()
+    await ucitajProbleme()
+  } finally {
+    sprema.value = false
+  }
+}
+
+async function potvrdiIzbris(id) {
+  zatvoriMeni()
+  if (!confirm('Jeste li sigurni da želite obrisati ovaj problem?')) return
+  await obrisiProblem(projektId, id)
+  await ucitajProbleme()
+}
+
+// Za svaki problem paralelno dohvati komentare samo radi broja — nema ih potrebe čuvati ovdje
+async function ucitajProbleme() {
+  ucitavanje.value = true
+  try {
+    const svi = await dohvatiSveProbleme(projektId)
+    problemi.value = await Promise.all(
+      svi.map(async (p) => {
+        const komentari = await dohvatiKomentare(projektId, p.id)
+        return { ...p, brojKomentara: komentari.length }
+      })
+    )
+  } finally {
+    ucitavanje.value = false
+  }
+}
+
+// ?dodaj=1 query param otvori modal odmah — koristi se npr. iz navigacijskog gumba "Prijavi problem"
+watch(
+  () => route.query.dodaj,
+  (val) => {
+    if (val === '1' && mozeDodati.value) {
+      prikazModal.value = true
+      router.replace({ path: route.path })
+    }
+  },
+  { immediate: true }
+)
+
+onMounted(async () => {
+  await projektiStore.postaviAktivniProjekt(projektId)
+  await ucitajProbleme()
+  document.addEventListener('click', zatvoriMeni)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('click', zatvoriMeni)
+})
+</script>
+
 <template>
   <div class="p-6 h-full flex flex-col gap-4">
 
@@ -293,298 +589,3 @@
 
   </div>
 </template>
-
-<script setup>
-import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { useAuthStore } from '@/stores/authStore'
-import { useProjektiStore } from '@/stores/projektiStore'
-import {
-  dohvatiSveProbleme,
-  kreirajProblem,
-  azurirajProblem,
-  obrisiProblem,
-  PRIORITETI
-} from '@/services/problemService'
-import { dohvatiKomentare } from '@/services/komentarService'
-
-const route  = useRoute()
-const router = useRouter()
-const authStore    = useAuthStore()
-const projektiStore = useProjektiStore()
-
-const projektId = route.params.projektId
-
-const problemi     = ref([])
-const ucitavanje   = ref(true)
-const sortir       = ref('najnovije')
-const pretraga     = ref('')
-const otvoreniMeni = ref(null)
-
-const prikazModal  = ref(false)
-const aktivniProblem = ref(null)
-const forma        = ref(praznaForma())
-const formaGreska  = ref('')
-const sprema       = ref(false)
-const datumDan     = ref('')
-const datumMjesec  = ref('')
-const datumGodina  = ref('')
-
-const pokaziProduljenje = ref(false)
-const noviDatumDan      = ref('')
-const noviDatumMjesec   = ref('')
-const noviDatumGodina   = ref('')
-const produljenjeGreska = ref('')
-
-const mozeDodati    = computed(() => authStore.jeAdministrator || authStore.jeTester || authStore.jeDeveloper)
-const mozeMijenjati = computed(() => authStore.jeAdministrator)
-
-const ZATVORENI_STATUSI = new Set(['zatvoren', 'riješen', 'odbijen'])
-const PRIORITET_REDOSLJED = { 'kritičan': 4, visok: 3, srednji: 2, nizak: 1 }
-
-function jeZatvoren(p) {
-  return ZATVORENI_STATUSI.has(p.status)
-}
-
-function prioritetBoja(prioritet) {
-  return {
-    'kritičan': 'bg-red-500',
-    visok:      'bg-orange-400',
-    srednji:    'bg-amber-400',
-    nizak:      'bg-gray-300'
-  }[prioritet] ?? 'bg-gray-200'
-}
-
-function praznaForma() {
-  return { naslov: '', opis: '', prioritet: PRIORITETI.SREDNJI }
-}
-
-function datumZavrsetkaISO() {
-  if (!datumDan.value || !datumMjesec.value || !datumGodina.value) return ''
-  const dd = String(datumDan.value).padStart(2, '0')
-  const mm = String(datumMjesec.value).padStart(2, '0')
-  return `${datumGodina.value}-${mm}-${dd}`
-}
-
-function resetirajDatum() {
-  datumDan.value = ''
-  datumMjesec.value = ''
-  datumGodina.value = ''
-}
-
-const upozorenjeDatuma = computed(() => {
-  const projekt = projektiStore.aktivniProjekt
-  if (!projekt?.datumZavrsetka) return null
-  const iso = datumZavrsetkaISO()
-  if (!iso) return null
-  const problemDate = new Date(iso)
-  const projektDate = projekt.datumZavrsetka.toDate
-    ? projekt.datumZavrsetka.toDate()
-    : new Date(projekt.datumZavrsetka)
-  if (problemDate > projektDate) return { problemDate, projektDate }
-  return null
-})
-
-function formatDatumObican(d) {
-  return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}.`
-}
-
-watch(pokaziProduljenje, (val) => {
-  if (val && upozorenjeDatuma.value) {
-    const d = upozorenjeDatuma.value.problemDate
-    noviDatumDan.value    = d.getDate()
-    noviDatumMjesec.value = d.getMonth() + 1
-    noviDatumGodina.value = d.getFullYear()
-    produljenjeGreska.value = ''
-  }
-})
-
-async function produljRokProjekta() {
-  produljenjeGreska.value = ''
-  if (!noviDatumDan.value || !noviDatumMjesec.value || !noviDatumGodina.value) {
-    produljenjeGreska.value = 'Unesite datum.'
-    return
-  }
-  const dd = String(noviDatumDan.value).padStart(2, '0')
-  const mm = String(noviDatumMjesec.value).padStart(2, '0')
-  const noviIso = `${noviDatumGodina.value}-${mm}-${dd}`
-  if (new Date(noviIso) < new Date(datumZavrsetkaISO())) {
-    produljenjeGreska.value = 'Novi rok projekta mora biti na datum roka problema ili nakon njega.'
-    return
-  }
-  await projektiStore.urediProjekt(projektId, { datumZavrsetka: noviIso })
-  pokaziProduljenje.value = false
-}
-
-const filtrirani = computed(() => {
-  let lista = [...problemi.value]
-
-  if (pretraga.value.trim()) {
-    const q = pretraga.value.toLowerCase()
-    lista = lista.filter(
-      p => p.naslov.toLowerCase().includes(q) || (p.opis ?? '').toLowerCase().includes(q)
-    )
-  }
-
-  lista.sort((a, b) => {
-    const aZ = jeZatvoren(a) ? 1 : 0
-    const bZ = jeZatvoren(b) ? 1 : 0
-    if (aZ !== bZ) return aZ - bZ
-
-    if (sortir.value === 'najnovije') {
-      return (b.datumPrijave?.seconds ?? 0) - (a.datumPrijave?.seconds ?? 0)
-    }
-    if (sortir.value === 'najstarije') {
-      return (a.datumPrijave?.seconds ?? 0) - (b.datumPrijave?.seconds ?? 0)
-    }
-    if (sortir.value === 'naziv') {
-      return a.naslov.localeCompare(b.naslov, 'hr')
-    }
-    if (sortir.value === 'prioritet_desc') {
-      return (PRIORITET_REDOSLJED[b.prioritet] ?? 0) - (PRIORITET_REDOSLJED[a.prioritet] ?? 0)
-    }
-    if (sortir.value === 'prioritet_asc') {
-      return (PRIORITET_REDOSLJED[a.prioritet] ?? 0) - (PRIORITET_REDOSLJED[b.prioritet] ?? 0)
-    }
-    return 0
-  })
-
-  return lista
-})
-
-function formatDatum(ts) {
-  if (!ts) return '—'
-  const d = ts.toDate ? ts.toDate() : new Date(ts)
-  if (isNaN(d.getTime())) return '—'
-  return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}.`
-}
-
-function formatStatus(s) {
-  return {
-    otvoren: 'Otvoren',
-    'u tijeku': 'U tijeku',
-    riješen: 'Završeno',
-    zatvoren: 'Zatvoren',
-    odbijen: 'Odbijen'
-  }[s] ?? s
-}
-
-function toggleMeni(id) {
-  otvoreniMeni.value = otvoreniMeni.value === id ? null : id
-}
-
-function zatvoriMeni() {
-  otvoreniMeni.value = null
-}
-
-function navigirajNaProblem(problem) {
-  router.push(`/projekti/${projektId}/problemi/${problem.id}`)
-}
-
-function zatvoriModal() {
-  prikazModal.value = false
-  aktivniProblem.value = null
-  forma.value = praznaForma()
-  formaGreska.value = ''
-  resetirajDatum()
-  pokaziProduljenje.value = false
-  noviDatumDan.value = ''
-  noviDatumMjesec.value = ''
-  noviDatumGodina.value = ''
-  produljenjeGreska.value = ''
-  router.replace({ path: route.path })
-}
-
-function otvoriUredi(problem) {
-  zatvoriMeni()
-  aktivniProblem.value = problem
-  forma.value = {
-    naslov: problem.naslov,
-    opis: problem.opis ?? '',
-    prioritet: problem.prioritet
-  }
-  if (problem.datumZavrsetka) {
-    const d = problem.datumZavrsetka.toDate()
-    datumDan.value    = d.getDate()
-    datumMjesec.value = d.getMonth() + 1
-    datumGodina.value = d.getFullYear()
-  } else {
-    resetirajDatum()
-  }
-  prikazModal.value = true
-}
-
-async function spremiProblem() {
-  formaGreska.value = ''
-  if (!forma.value.naslov.trim()) {
-    formaGreska.value = 'Naslov je obavezan.'
-    return
-  }
-  if (upozorenjeDatuma.value) {
-    formaGreska.value = `Rok problema ne može biti nakon roka projekta (${formatDatumObican(upozorenjeDatuma.value.projektDate)}).`
-    return
-  }
-  sprema.value = true
-  try {
-    const podaci = { ...forma.value, datumZavrsetka: datumZavrsetkaISO() || null }
-    if (aktivniProblem.value) {
-      await azurirajProblem(projektId, aktivniProblem.value.id, podaci)
-    } else {
-      const uid = authStore.user.uid
-      await kreirajProblem(projektId, {
-        ...podaci,
-        testerUid: authStore.jeTester ? uid : null,
-        administratorUid: authStore.jeAdministrator ? uid : null,
-        developerUid: null
-      })
-    }
-    zatvoriModal()
-    await ucitajProbleme()
-  } finally {
-    sprema.value = false
-  }
-}
-
-async function potvrdiIzbris(id) {
-  zatvoriMeni()
-  if (!confirm('Jeste li sigurni da želite obrisati ovaj problem?')) return
-  await obrisiProblem(projektId, id)
-  await ucitajProbleme()
-}
-
-async function ucitajProbleme() {
-  ucitavanje.value = true
-  try {
-    const svi = await dohvatiSveProbleme(projektId)
-    problemi.value = await Promise.all(
-      svi.map(async (p) => {
-        const komentari = await dohvatiKomentare(projektId, p.id)
-        return { ...p, brojKomentara: komentari.length }
-      })
-    )
-  } finally {
-    ucitavanje.value = false
-  }
-}
-
-watch(
-  () => route.query.dodaj,
-  (val) => {
-    if (val === '1' && mozeDodati.value) {
-      prikazModal.value = true
-      router.replace({ path: route.path })
-    }
-  },
-  { immediate: true }
-)
-
-onMounted(async () => {
-  await projektiStore.postaviAktivniProjekt(projektId)
-  await ucitajProbleme()
-  document.addEventListener('click', zatvoriMeni)
-})
-
-onBeforeUnmount(() => {
-  document.removeEventListener('click', zatvoriMeni)
-})
-</script>
