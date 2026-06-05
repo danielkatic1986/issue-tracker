@@ -193,6 +193,15 @@ function zatvoriSveMeniji() {
   dodajClanaMeniOtvoren.value = false
 }
 
+const jeClanProblema = computed(() => {
+  if (!problem.value || !authStore.user) return false
+  if (authStore.jeAdministrator) return true
+  const uid = authStore.user.uid
+  return uid === problem.value.administratorUid ||
+         uid === problem.value.testerUid ||
+         uid === problem.value.developerUid
+})
+
 // Administrator može brisati tuđe komentare; ostali samo svoje
 function mozeBrisatiKomentar(k) {
   return authStore.jeAdministrator || k.korisnikUid === authStore.user?.uid
@@ -407,6 +416,7 @@ onBeforeUnmount(() => {
         <div class="flex items-center gap-2 shrink-0">
           <h2 class="text-base font-semibold text-gray-800 dark:text-gray-100">Komentari</h2>
           <button
+            v-if="jeClanProblema"
             @click="prikazNoviKomentar = true"
             class="w-6 h-6 rounded-full border border-gray-300 dark:border-gray-600 flex items-center justify-center text-gray-400 dark:text-gray-500 hover:border-gray-500 dark:hover:border-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
           >
@@ -514,6 +524,7 @@ onBeforeUnmount(() => {
           <div class="flex items-center gap-2">
             <h2 class="text-base font-semibold text-gray-800 dark:text-gray-100">Privitci</h2>
             <button
+              v-if="jeClanProblema"
               :disabled="uploadLoading"
               @click="fileInput?.click()"
               class="w-6 h-6 rounded-full border border-gray-300 dark:border-gray-600 flex items-center justify-center text-gray-400 dark:text-gray-500 hover:border-gray-500 dark:hover:border-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"

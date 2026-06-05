@@ -178,10 +178,14 @@ async function ucitajProjekte() {
   ucitavanje.value = true
   try {
     const svi = await dohvatiSveProjekte()
+    const uid = authStore.user?.uid
     projekti.value = await Promise.all(
       svi.map(async (p) => {
         const problemi = await dohvatiSveProbleme(p.id)
-        return { ...p, brojProblema: problemi.length }
+        const jeClan = authStore.jeAdministrator || problemi.some(
+          (pr) => pr.administratorUid === uid || pr.testerUid === uid || pr.developerUid === uid
+        )
+        return { ...p, brojProblema: problemi.length, jeClan }
       })
     )
   } finally {
@@ -282,10 +286,14 @@ onBeforeUnmount(() => {
             :key="'card-' + projekt.id"
             @click="router.push(`/projekti/${projekt.id}`)"
             class="px-5 py-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer"
+            :class="{ 'opacity-50': !projekt.jeClan }"
           >
             <div class="flex items-start justify-between gap-3">
               <div class="min-w-0 flex-1">
-                <p class="text-sm font-semibold text-gray-800 dark:text-gray-100">{{ projekt.naziv }}</p>
+                <div class="flex items-center gap-2">
+                  <p class="text-sm font-semibold text-gray-800 dark:text-gray-100">{{ projekt.naziv }}</p>
+                  <span v-if="!projekt.jeClan" class="px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 shrink-0">Niste član</span>
+                </div>
                 <p v-if="projekt.opis" class="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate">{{ projekt.opis }}</p>
                 <div class="flex items-center gap-3 mt-2 flex-wrap">
                   <span class="flex items-center gap-1 text-xs text-gray-400 dark:text-gray-500">
@@ -340,8 +348,14 @@ onBeforeUnmount(() => {
               :key="projekt.id"
               @click="router.push(`/projekti/${projekt.id}`)"
               class="border-b border-gray-50 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer"
+              :class="{ 'opacity-50': !projekt.jeClan }"
             >
-              <td class="px-6 py-4 text-sm font-medium text-gray-800 dark:text-gray-100 whitespace-nowrap">{{ projekt.naziv }}</td>
+              <td class="px-6 py-4 text-sm font-medium text-gray-800 dark:text-gray-100 whitespace-nowrap">
+                <div class="flex items-center gap-2">
+                  {{ projekt.naziv }}
+                  <span v-if="!projekt.jeClan" class="px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500">Niste član</span>
+                </div>
+              </td>
               <td class="px-4 py-4 text-sm text-gray-500 dark:text-gray-400 max-w-48 truncate">{{ projekt.opis || '—' }}</td>
               <td class="px-4 py-4 text-sm text-gray-600 dark:text-gray-300 text-center">{{ projekt.brojProblema }}</td>
               <td class="px-4 py-4">
