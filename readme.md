@@ -130,3 +130,7 @@ Postuvjet:
 ## Link na javni prototip
 
 [Javni prototip na Figmi](https://www.figma.com/proto/2cuI4zi1EPM0Qb3RuzRjSS/BugTracker?node-id=0-1&t=uJ5pskhX8eYchWpY-1)
+
+## Demonstracija aplikacije
+
+[YouTube Demonstracija](https://youtu.be/4b40Rp2pOME)
